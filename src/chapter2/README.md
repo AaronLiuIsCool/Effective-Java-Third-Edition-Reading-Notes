@@ -268,9 +268,57 @@ As a side effect, this idiom also prevents the class from being subclassed. All 
 Static utility classes and singletons are inappropriate for classes whose behavior is parameterized by an underlying resource.
 What is required is the ability to support multiple instances of the class (in our example, SpellChecker), each of which uses the resource desired by the client (in our example, the dictionary). 
 A simple pattern that satisfies this requirement is to pass the resource into the constructor when creating a new instance. This is one form of dependency injection: the dictionary is a dependency of the spell checker and is injected into the spell checker when it is created. 
+```aidl
+// Dependency injection provides flexibility and testability
 
+public class SpellChecker {
+
+    private final Lexicon dictionary;
+
+    public SpellChecker(Lexicon dictionary) {
+
+        this.dictionary = Objects.requireNonNull(dictionary);
+
+    }
+
+    public boolean isValid(String word) { ... }
+
+    public List<String> suggestions(String typo) { ... }
+
+}
+```
+The dependency injection pattern is so simple that many programmers use it for years without knowing it has a name. 
+While our spell checker example had only a single resource (the dictionary), dependency injection works with an arbitrary number of resources and arbitrary dependency graphs. 
+It preserves immutability (Item 17), so multiple clients can share dependent objects (assuming the clients desire the same underlying resources). 
+Dependency injection is equally applicable to constructors, static factories (Item 1), and builders (Item 2).
+
+A useful variant of the pattern is to pass a resource factory to the constructor. 
+A factory is an object that can be called repeatedly to create instances of a type. 
+Such factories embody the Factory Method pattern [Gamma95]. 
+The Supplier<T> interface, introduced in Java 8, is perfect for representing factories. 
+Methods that take a Supplier<T> on input should typically constrain the factory’s type parameter using a bounded wildcard type (Item 31) to allow the client to pass in a factory that creates any subtype of a specified type.
+For example, here is a method that makes a mosaic using a client-provided factory to produce each tile:
+```aidl
+Mosaic create(Supplier<? extends Tile> tileFactory) { ... }
+```
+Although dependency injection greatly improves flexibility and testability, it can clutter up large projects, which typically contain thousands of dependencies. 
+This clutter can be all but eliminated by using a dependency injection framework, such as Dagger [Dagger], Guice [Guice], or Spring [Spring]. 
+The use of these frameworks is beyond the scope of this book, but note that APIs designed for manual dependency injection are trivially adapted for use by these frameworks.
+
+In summary, do not use a singleton or static utility class to implement a class that depends on one or more underlying resources whose behavior affects that of the class, 
+and do not have the class create these resources directly. 
+Instead, pass the resources, or factories to create them, into the constructor (or static factory or builder). 
+This practice, known as dependency injection, will greatly enhance the flexibility, reusability, and testability of a class.
 
 ##ITEM 6: AVOID CREATING UNNECESSARY OBJECTS
+It is often appropriate to reuse a single object instead of creating a new functionally equivalent object each time it is needed. 
+Reuse can be both faster and more stylish. An object can always be reused if it is immutable.
+
+You can often avoid creating unnecessary objects by using static factory methods (Item 1) in preference to constructors on immutable classes that provide both. 
+For example, the factory method Boolean.valueOf(String) is preferable to the constructor Boolean(String), which was deprecated in Java 9. 
+The constructor must create a new object each time it’s called, while the factory method is never required to do so and won’t in practice. 
+In addition to reusing immutable objects, you can also reuse mutable objects if you know they won’t be modified.
+
 
 ##ITEM 7: ELIMINATE OBSOLETE OBJECT REFERENCES
 
