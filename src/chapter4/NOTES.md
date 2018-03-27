@@ -516,9 +516,638 @@ multiplication and division, which are not correctly rounded and provide poor se
 
 ##ITEM 18: FAVOR COMPOSITION OVER INHERITANCE
 
+Inheritance is a powerful way to achieve code reuse, but it is not always the best tool for the job.Used inappropriately,
+it leads to fragile software. It is safe to use inheritance within a package, where the subclass and the superclass
+implementations are under the control of the same programmers. It is also safe to use inheritance when extending classes 
+specifically designed and documented for extension (Item 19). <b>Inheriting from ordinary concrete classes across package
+boundaries, however, is dangerous.</b> As a reminder, this book uses the word “inheritance” to mean implementation inheritance
+(when one class extends another). The problems discussed in this item do not apply to interface inheritance (when a class
+implements an interface or when one interface extends another).
+
+Unlike method invocation, inheritance violates encapsulation [Snyder86]. In other words, a subclass depends on the 
+implementation details of its superclass for its proper function. The superclass’s implementation may change from release
+to release, and if it does, the subclass may break, even though its code has not been touched. As a consequence, a subclass
+must evolve in tandem with its superclass, unless the superclass’s authors have designed and documented it specifically 
+for the purpose of being extended.
+
+To make this concrete, let’s suppose we have a program that uses a HashSet. To tune the performance of our program, we
+need to query the HashSet as to how many elements have been added since it was created (not to be confused with its
+current size, which goes down when an element is removed). To provide this functionality, we write a HashSet variant
+that keeps count of the number of attempted element insertions and exports an accessor for this count. The HashSet class
+contains two methods capable of adding elements, add and addAll, so we override both of these methods:
+
+// Broken - Inappropriate use of inheritance!
+```
+public class InstrumentedHashSet<E> extends HashSet<E> {
+    // The number of attempted element insertions
+    private int addCount = 0;
+
+    public InstrumentedHashSet() { }
+
+    public InstrumentedHashSet(int initCap, float loadFactor) {
+        super(initCap, loadFactor);
+    }
+
+    @Override public boolean add(E e) {
+        addCount++;
+        return super.add(e);
+    }
+
+    @Override public boolean addAll(Collection<? extends E> c) {
+        addCount += c.size();
+        return super.addAll(c);
+    }
+
+    public int getAddCount() {
+        return addCount;
+    }
+}
+```
+
+This class looks reasonable, but it doesn’t work. Suppose we create an instance and add three elements using the addAll
+method. Incidentally, note that we create a list using the static factory method List.of, which was added in Java 9;
+if you’re using an earlier release, use Arrays.asList instead:
+
+```
+InstrumentedHashSet<String> s = new InstrumentedHashSet<>();
+s.addAll(List.of("Snap", "Crackle", "Pop"));
+```
+
+We would expect the getAddCount method to return three at this point, but it returns six. What went wrong? Internally,
+HashSet’s addAll method is implemented on top of its add method, although HashSet, quite reasonably, does not document
+this implementation detail. The addAll method in Instrumented-HashSet added three to addCount and then invoked HashSet’s
+addAll implementation using super.addAll. This in turn invoked the add method, as overridden in InstrumentedHashSet, once
+for each element. Each of these three invocations added one more to addCount, for a total increase of six: each element
+added with the addAll method is double-counted.
+
+We could “fix” the subclass by eliminating its override of the addAll method. While the resulting class would work, it
+would depend for its proper function on the fact that HashSet’s addAll method is implemented on top of its add method.
+This “self-use” is an implementation detail, not guaranteed to hold in all implementations of the Java platform and
+subject to change from release to release. Therefore, the resulting InstrumentedHashSet class would be fragile.
+
+It would be slightly better to override the addAll method to iterate over the specified collection, calling the add
+method once for each element. This would guarantee the correct result whether or not HashSet’s addAll method were
+implemented atop its add method because HashSet’s addAll implementation would no longer be invoked. This technique,
+however, does not solve all our problems. It amounts to re-implementing superclass methods that may or may not result in
+self-use, which is difficult, time-consuming, error-prone, and may reduce performance. Additionally, it isn’t always
+possible because some methods cannot be implemented without access to private fields inaccessible to the subclass.
+
+A related cause of fragility in subclasses is that their superclass can acquire new methods in subsequent releases.
+Suppose a program depends for its security on the fact that all elements inserted into some collection satisfy some
+predicate. This can be guaranteed by subclassing the collection and overriding each method capable of adding an element
+to ensure that the predicate is satisfied before adding the element. This works fine until a new method capable of
+inserting an element is added to the superclass in a subsequent release. Once this happens, it becomes possible to add
+an “illegal” element merely by invoking the new method, which is not overridden in the subclass. This is not a purely
+theoretical problem. Several security holes of this nature had to be fixed when Hashtable and Vector were retrofitted
+to participate in the Collections Framework.
+
+Both of these problems stem from overriding methods. You might think that it is safe to extend a class if you merely add
+new methods and refrain from overriding existing methods. While this sort of extension is much safer, it is not without
+risk. If the superclass acquires a new method in a subsequent release and you have the bad luck to have given the subclass
+a method with the same signature and a different return type, your subclass will no longer compile [JLS, 8.4.8.3]. If
+you’ve given the subclass a method with the same signature and return type as the new superclass method, then you’re now
+overriding it, so you’re subject to the problems described earlier. Furthermore, it is doubtful that your method will
+fulfill the contract of the new superclass method, because that contract had not yet been written when you wrote the
+subclass method.
+
+Luckily, there is a way to avoid all of the problems described above. Instead of extending an existing class, give your
+new class a private field that references an instance of the existing class. This design is called composition because
+the existing class becomes a component of the new one. Each instance method in the new class invokes the corresponding
+method on the contained instance of the existing class and returns the results. This is known as forwarding, and the
+methods in the new class are known as forwarding methods. The resulting class will be rock solid, with no dependencies
+on the implementation details of the existing class. Even adding new methods to the existing class will have no impact
+on the new class. To make this concrete, here’s a replacement for InstrumentedHashSet that uses the
+composition-and-forwarding approach. Note that the implementation is broken into two pieces, the class itself and a
+reusable forwarding class, which contains all of the forwarding methods and nothing else:
+
+```
+// Wrapper class - uses composition in place of inheritance
+public class InstrumentedSet<E> extends ForwardingSet<E> {
+    private int addCount = 0;
+    
+    public InstrumentedSet(Set<E> s) {
+        super(s);
+    }
+
+    @Override 
+    public boolean add(E e) {
+        addCount++;
+        return super.add(e);
+     }
+
+     @Override 
+     public boolean addAll(Collection<? extends E> c) {
+         addCount += c.size();
+         return super.addAll(c);
+     }
+
+     public int getAddCount() {
+         return addCount;
+     }
+}
+```
+// Reusable forwarding class
+```
+public class ForwardingSet<E> implements Set<E> {
+
+    private final Set<E> s;
+    
+    public ForwardingSet(Set<E> s) { this.s = s; }
+
+    public void clear()               { s.clear();            }
+
+    public boolean contains(Object o) { return s.contains(o); }
+
+    public boolean isEmpty()          { return s.isEmpty();   }
+
+    public int size()                 { return s.size();      }
+
+    public Iterator<E> iterator()     { return s.iterator();  }
+
+    public boolean add(E e)           { return s.add(e);      }
+
+    public boolean remove(Object o)   { return s.remove(o);   }
+
+    public boolean containsAll(Collection<?> c) { return s.containsAll(c); }
+
+    public boolean addAll(Collection<? extends E> c) { return s.addAll(c);      }
+
+    public boolean removeAll(Collection<?> c) { return s.removeAll(c);   }
+
+    public boolean retainAll(Collection<?> c) { return s.retainAll(c);   }
+
+    public Object[] toArray()          { return s.toArray();  }
+
+    public <T> T[] toArray(T[] a)      { return s.toArray(a); }
+
+    @Override public boolean equals(Object o) { return s.equals(o);  }
+
+    @Override public int hashCode()    { return s.hashCode(); }
+
+    @Override public String toString() { return s.toString(); }
+}
+```
+{Aaron notes: Above is an important design.}
+The design of the InstrumentedSet class is enabled by the existence of the Set interface, which captures the functionality
+of the HashSet class. Besides being robust, this design is extremely flexible. The InstrumentedSet class implements the 
+Set interface and has a single constructor whose argument is also of type Set. In essence, the class transforms one Set
+into another, adding the instrumentation functionality. Unlike the inheritance-based approach, which works only for a
+single concrete class and requires a separate constructor for each supported constructor in the superclass, the wrapper
+class can be used to instrument any Set implementation and will work in conjunction with any pre-existing constructor:
+
+```aidl
+Set<Instant> times = new InstrumentedSet<>(new TreeSet<>(cmp));
+Set<E> s = new InstrumentedSet<>(new HashSet<>(INIT_CAPACITY));
+
+```
+The InstrumentedSet class can even be used to temporarily instrument a set instance that has already been used without instrumentation:
+
+```
+
+static void walk(Set<Dog> dogs) {
+
+    InstrumentedSet<Dog> iDogs = new InstrumentedSet<>(dogs);
+    ... // Within this method use iDogs instead of dogs
+}
+```
+
+The InstrumentedSet class is known as a wrapper class because each InstrumentedSet instance contains (“wraps”) another Set
+instance. This is also known as the Decorator pattern [Gamma95] because the InstrumentedSet class “decorates” a set by adding
+instrumentation. Sometimes the combination of composition and forwarding is loosely referred to as delegation. Technically
+it’s not delegation unless the wrapper object passes itself to the wrapped object [Lieberman86; Gamma95].
+
+The disadvantages of wrapper classes are few. One caveat is that wrapper classes are not suited for use in callback
+frameworks, wherein objects pass self-references to other objects for subsequent invocations (“callbacks”). Because a
+wrapped object doesn’t know of its wrapper, it passes a reference to itself (this) and callbacks elude the wrapper. This
+is known as the SELF problem [Lieberman86]. Some people worry about the performance impact of forwarding method invocations
+or the memory footprint impact of wrapper objects. Neither turn out to have much impact in practice. It’s tedious to write
+forwarding methods, but you have to write the reusable forwarding class for each interface only once, and forwarding classes
+may be provided for you. For example, Guava provides forwarding classes for all of the collection interfaces [Guava].
+{Aaron notes: Above is an important design.}
+
+Inheritance is appropriate only in circumstances where the subclass really is a subtype of the superclass. In other words,
+a class B should extend a class A <b>only if an “is-a” relationship exists between the two classes.</b> If you are tempted
+to have a class B extend a class A, ask yourself the question: Is every B really an A? If you cannot truthfully answer
+yes to this question, B should not extend A. If the answer is no, it is often the case that B should contain a private
+instance of A and expose a different API: A is not an essential part of B, merely a detail of its implementation.
+
+There are a number of obvious violations of this principle in the Java platform libraries. For example, a stack is not a
+vector, so Stack should not extend Vector. Similarly, a property list is not a hash table, so Properties should not extend
+Hashtable. In both cases, composition would have been preferable.
+
+If you use inheritance where composition is appropriate, you needlessly expose implementation details. The resulting API
+ties you to the original implementation, forever limiting the performance of your class. More seriously, by exposing the
+internals you let clients access them directly. At the very least, it can lead to confusing semantics. For example, if p
+refers to a Properties instance, then p.getProperty(key) may yield different results from p.get(key): the former method 
+takes defaults into account, while the latter method, which is inherited from Hashtable, does not. Most seriously, the
+client may be able to corrupt invariants of the subclass by modifying the superclass directly. In the case of Properties,
+the designers intended that only strings be allowed as keys and values, but direct access to the underlying Hashtable
+allows this invariant to be violated. Once violated, it is no longer possible to use other parts of the Properties API
+(load and store). By the time this problem was discovered, it was too late to correct it because clients depended on the
+use of non-string keys and values.
+
+There is one last set of questions you should ask yourself before deciding to use inheritance in place of composition. 
+Does the class that you contemplate extending have any flaws in its API? If so, are you comfortable propagating those
+flaws into your class’s API? Inheritance propagates any flaws in the superclass’s API, while composition lets you design
+a new API that hides these flaws.
+
+### To summarize, inheritance is powerful, but it is problematic because it violates encapsulation. It is appropriate only when a genuine subtype relationship exists between the subclass and the superclass. Even then, inheritance may lead to fragility if the subclass is in a different package from the superclass and the superclass is not designed for inheritance. <b>To avoid this fragility, use composition and forwarding instead of inheritance, especially if an appropriate interface to implement a wrapper class exists. Not only are wrapper classes more robust than subclasses, they are also more powerful.</b>
+
 ##ITEM 19: DESIGN AND DOCUMENT FOR INHERITANCE OR ELSE PROHIBIT IT
 
+Item 18 alerted you to the dangers of subclassing a “foreign” class that was not designed and documented for inheritance. 
+So what does it mean for a class to be designed and documented for inheritance?
+
+First, the class must document precisely the effects of overriding any method. In other words, the class must document its 
+self-use of overridable methods. For each public or protected method, the documentation must indicate which overridable 
+methods the method invokes, in what sequence, and how the results of each invocation affect subsequent processing. 
+(By overridable, we mean nonfinal and either public or protected.) More generally, a class must document any circumstances
+under which it might invoke an overridable method. For example, invocations might come from background threads or static
+initializers.
+
+A method that invokes overridable methods contains a description of these invocations at the end of its documentation 
+comment. The description is in a special section of the specification, labeled “Implementation Requirements,” which is 
+generated by the Javadoc tag @implSpec. This section describes the inner workings of the method. Here’s an example, copied 
+from the specification for java.util.AbstractCollection:
+
+```aidl
+public boolean remove(Object o)
+```
+
+Removes a single instance of the specified element from this collection, if it is present (optional operation). More
+formally, removes an element e such that Objects.equals(o, e), if this collection contains one or more such elements. 
+Returns true if this collection contained the specified element (or equivalently, if this collection changed as a result 
+of the call).
+
+Implementation Requirements: This implementation iterates over the collection looking for the specified element. If it 
+finds the element, it removes the element from the collection using the iterator’s remove method. Note that this 
+implementation throws an UnsupportedOperationException if the iterator returned by this collection’s iterator method does 
+not implement the remove method and this collection contains the specified object.
+
+This documentation leaves no doubt that overriding the iterator method will affect the behavior of the remove method. It 
+also describes exactly how the behavior of the Iterator returned by the iterator method will affect the behavior of the 
+remove method. Contrast this to the situation in Item 18, where the programmer subclassing HashSet simply could not say 
+whether overriding the add method would affect the behavior of the addAll method.
+
+But doesn’t this violate the dictum that good API documentation should describe what a given method does and not how it 
+does it? Yes, it does! This is an unfortunate consequence of the fact that inheritance violates encapsulation. To document 
+a class so that it can be safely subclassed, you must describe implementation details that should otherwise be left unspecified.
+
+The @implSpec tag was added in Java 8 and used heavily in Java 9. This tag should be enabled by default, but as of Java 9,
+the Javadoc utility still ignores it unless you pass the command line switch -tag "apiNote:a:API Note:".
+
+Designing for inheritance involves more than just documenting patterns of self-use. To allow programmers to write efficient 
+subclasses without undue pain, a class may have to provide hooks into its internal workings in the form of judiciously 
+chosen protected methods or, in rare instances, protected fields. For example, consider the removeRange method from 
+java.util.AbstractList:
+
+```
+protected void removeRange(int fromIndex, int toIndex)
+```
+
+Removes from this list all of the elements whose index is between fromIndex, inclusive, and toIndex, exclusive. Shifts 
+any succeeding elements to the left (reduces their index). This call shortens the list by (toIndex - fromIndex) elements. 
+(If toIndex == fromIndex, this operation has no effect.)
+
+This method is called by the clear operation on this list and its sublists. Overriding this method to take advantage of 
+the internals of the list implementation can substantially improve the performance of the clear operation on this list 
+and its sublists.
+
+Implementation Requirements: This implementation gets a list iterator positioned before fromIndex and repeatedly calls 
+ListIterator.next followed by ListIterator.remove, until the entire range has been removed. Note: If ListIterator.remove 
+requires linear time, this implementation requires quadratic time.
+
+Parameters:
+fromIndex       index of first element to be removed.
+toIndex           index after last element to be removed.
+
+This method is of no interest to end users of a List implementation. It is provided solely to make it easy for subclasses
+to provide a fast clear method on sublists. In the absence of the removeRange method, subclasses would have to make do with
+quadratic performance when the clear method was invoked on sublists or rewrite the entire subList mechanism from scratch—not
+an easy task!
+
+So how do you decide what protected members to expose when you design a class for inheritance? Unfortunately, there is no
+magic bullet. The best you can do is to think hard, take your best guess, and then test it by writing subclasses. You
+should expose as few protected members as possible because each one represents a commitment to an implementation detail.
+On the other hand, you must not expose too few because a missing protected member can render a class practically unusable
+for inheritance.
+
+The only way to test a class designed for inheritance is to write subclasses. If you omit a crucial protected member,
+trying to write a subclass will make the omission painfully obvious. Conversely, if several subclasses are written and
+none uses a protected member, you should probably make it private. Experience shows that three subclasses are usually
+sufficient to test an extendable class. One or more of these subclasses should be written by someone other than the superclass author.
+{Aaron notes: Above is an important design.}
+
+When you design for inheritance a class that is likely to achieve wide use, realize that you are committing forever to the 
+self-use patterns that you document and to the implementation decisions implicit in its protected methods and fields. 
+These commitments can make it difficult or impossible to improve the performance or functionality of the class in a subsequent
+release. Therefore, you must test your class by writing subclasses before you release it.
+
+Also, note that the special documentation required for inheritance clutters up normal documentation, which is designed
+for programmers who create instances of your class and invoke methods on them. As of this writing, there is little in
+the way of tools to separate ordinary API documentation from information of interest only to programmers implementing
+subclasses.
+
+There are a few more restrictions that a class must obey to allow inheritance. Constructors must not invoke overridable 
+methods, directly or indirectly. If you violate this rule, program failure will result. The superclass constructor runs
+before the subclass constructor, so the overriding method in the subclass will get invoked before the subclass constructor
+has run. If the overriding method depends on any initialization performed by the subclass constructor, the method will
+not behave as expected. To make this concrete, here’s a class that violates this rule:
+
+```
+public class Super {
+
+    // Broken - constructor invokes an overridable method
+    public Super() {
+        overrideMe();
+    }
+
+    public void overrideMe() {}
+
+}
+```
+Here’s a subclass that overrides the overrideMe method, which is erroneously invoked by Super’s sole constructor:
+
+```
+public final class Sub extends Super {
+
+    // Blank final, set by constructor
+    private final Instant instant;
+
+    Sub() {
+        instant = Instant.now();
+    }
+
+    // Overriding method invoked by superclass constructor
+    @Override public void overrideMe() {
+        System.out.println(instant);
+    }
+
+    public static void main(String[] args) {
+        Sub sub = new Sub();
+        sub.overrideMe();
+    }
+}
+```
+You might expect this program to print out the instant twice, but it prints out null the first time because overrideMe 
+is invoked by the Super constructor before the Sub constructor has a chance to initialize the instant field. Note that 
+this program observes a final field in two different states! Note also that if overrideMe had invoked any method on 
+instant, it would have thrown a NullPointerException when the Super constructor invoked overrideMe. The only reason this 
+program doesn’t throw a NullPointerException as it stands is that the println method tolerates null parameters.
+
+Note that it is safe to invoke private methods, final methods, and static methods, none of which are overridable, from a constructor.
+
+The Cloneable and Serializable interfaces present special difficulties when designing for inheritance. It is generally
+not a good idea for a class designed for inheritance to implement either of these interfaces because they place a 
+substantial burden on programmers who extend the class. There are, however, special actions that you can take to allow
+subclasses to implement these interfaces without mandating that they do so. These actions are described in Item 13 and Item 86.
+
+If you do decide to implement either Cloneable or Serializable in a class that is designed for inheritance, you should be
+aware that because the clone and readObject methods behave a lot like constructors, a similar restriction applies: 
+neither clone nor readObject may invoke an overridable method, directly or indirectly. In the case of readObject, the 
+overriding method will run before the subclass’s state has been deserialized. In the case of clone, the overriding method 
+will run before the subclass’s clone method has a chance to fix the clone’s state. In either case, a program failure is 
+likely to follow. In the case of clone, the failure can damage the original object as well as the clone. This can happen, 
+for example, if the overriding method assumes it is modifying the clone’s copy of the object’s deep structure, but the 
+copy hasn’t been made yet.
+
+Finally, if you decide to implement Serializable in a class designed for inheritance and the class has a readResolve or 
+writeReplace method, you must make the readResolve or writeReplace method protected rather than private. If these methods 
+are private, they will be silently ignored by subclasses. This is one more case where an implementation detail becomes 
+part of a class’s API to permit inheritance.
+
+By now it should be apparent that designing a class for inheritance requires great effort and places substantial 
+limitations on the class. This is not a decision to be undertaken lightly. There are some situations where it is clearly 
+the right thing to do, such as abstract classes, including skeletal implementations of interfaces (Item 20). There are 
+other situations where it is clearly the wrong thing to do, such as immutable classes (Item 17).
+
+But what about ordinary concrete classes? Traditionally, they are neither final nor designed and documented for 
+subclassing, but this state of affairs is dangerous. Each time a change is made in such a class, there is a chance that 
+subclasses extending the class will break. This is not just a theoretical problem. It is not uncommon to receive 
+subclassing-related bug reports after modifying the internals of a nonfinal concrete class that was not designed and 
+documented for inheritance.
+
+The best solution to this problem is to prohibit subclassing in classes that are not designed and documented to be safely 
+subclassed. There are two ways to prohibit subclassing. The easier of the two is to declare the class final. The alternative 
+is to make all the constructors private or package-private and to add public static factories in place of the constructors. 
+This alternative, which provides the flexibility to use subclasses internally, is discussed in Item 17. Either approach is 
+acceptable.
+
+This advice may be somewhat controversial because many programmers have grown accustomed to subclassing ordinary concrete 
+classes to add facilities such as instrumentation, notification, and synchronization or to limit functionality. If a class 
+implements some interface that captures its essence, such as Set, List, or Map, then you should feel no compunction about 
+prohibiting subclassing. The wrapper class pattern, described in Item 18, provides a superior alternative to inheritance 
+for augmenting the functionality.
+
+If a concrete class does not implement a standard interface, then you may inconvenience some programmers by prohibiting 
+inheritance. If you feel that you must allow inheritance from such a class, one reasonable approach is to ensure that the 
+class never invokes any of its overridable methods and to document this fact. In other words, eliminate the class’s 
+self-use of overridable methods entirely. In doing so, you’ll create a class that is reasonably safe to subclass. 
+<b>Overriding a method will never affect the behavior of any other method. </b>
+
+You can eliminate a class’s self-use of overridable methods mechanically, without changing its behavior. Move the body 
+of each overridable method to a private “helper method” and have each overridable method invoke its private helper method. 
+Then replace each self-use of an overridable method with a direct invocation of the overridable method’s private helper 
+method.
+
+### In summary, designing a class for inheritance is hard work. You must document all of its self-use patterns, and once you’ve documented them, you must commit to them for the life of the class. If you fail to do this, subclasses may become dependent on implementation details of the superclass and may break if the implementation of the superclass changes. To allow others to write efficient subclasses, you may also have to export one or more protected methods. Unless you know there is a real need for subclasses, you are probably better off prohibiting inheritance by declaring your class final or ensuring that there are no accessible constructors.
+
 ##ITEM 20: PREFER INTERFACES TO ABSTRACT CLASSES
+Java has two mechanisms to define a type that permits multiple implementations: interfaces and abstract classes. Since 
+the introduction of default methods for interfaces in Java 8 [JLS 9.4.3], both mechanisms allow you to provide 
+implementations for some instance methods. A major difference is that to implement the type defined by an abstract class, 
+a class must be a subclass of the abstract class. Because Java permits only single inheritance, this restriction on abstract
+classes severely constrains their use as type definitions. Any class that defines all the required methods and obeys the
+general contract is permitted to implement an interface, regardless of where the class resides in the class hierarchy.
+
+Existing classes can easily be retrofitted to implement a new interface. All you have to do is to add the required methods, 
+if they don’t yet exist, and to add an implements clause to the class declaration. For example, many existing classes were
+retrofitted to implement the Comparable, Iterable, and Autocloseable interfaces when they were added to the platform. 
+Existing classes cannot, in general, be retrofitted to extend a new abstract class. If you want to have two classes 
+extend the same abstract class, you have to place it high up in the type hierarchy where it is an ancestor of both classes. 
+Unfortunately, this can cause great collateral damage to the type hierarchy, forcing all descendants of the new abstract 
+class to subclass it, whether or not it is appropriate.
+{Aaron notes: Above is an important design.}
+
+Interfaces are ideal for defining mixins.{Aaron notes: feels javascript.} Loosely speaking, a mixin is a type that a class 
+can implement in addition to its “primary type,” to declare that it provides some optional behavior. 
+For example, Comparable is a mixin interface that allows a class to declare that its instances are ordered with respect
+to other mutually comparable objects. Such an interface is called a mixin because it allows the optional functionality
+to be “mixed in” to the type’s primary functionality. Abstract classes can’t be used to define mixins for the same reason
+that they can’t be retrofitted onto existing classes: a class cannot have more than one parent, and there is no reasonable
+place in the class hierarchy to insert a mixin.
+
+Interfaces allow for the construction of non-hierarchical type frameworks. Type hierarchies are great for organizing some
+things, but other things don’t fall neatly into a rigid hierarchy. For example, suppose we have an interface representing
+a singer and another representing a songwriter:
+
+```
+public interface Singer {
+    AudioClip sing(Song s);
+}
+
+public interface Songwriter {
+    Song compose(int chartPosition);
+}
+```
+In real life, some singers are also songwriters. Because we used interfaces rather than abstract classes to define these
+types, it is perfectly permissible for a single class to implement both Singer and Songwriter. In fact, we can define a
+third interface that extends both Singer and Songwriter and adds new methods that are appropriate to the combination:
+
+```
+public interface SingerSongwriter extends Singer, Songwriter {
+
+    AudioClip strum();
+    void actSensitive();
+}
+```
+
+You don’t always need this level of flexibility, but when you do, interfaces are a lifesaver. The alternative is a
+bloated class hierarchy containing a separate class for every supported combination of attributes. If there are n 
+attributes in the type system, there are 2n possible combinations that you might have to support. This is what’s known 
+as a combinatorial explosion. Bloated class hierarchies can lead to bloated classes with many methods that differ only 
+in the type of their arguments because there are no types in the class hierarchy to capture common behaviors.
+
+Interfaces enable safe, powerful functionality enhancements via the wrapper class idiom (Item 18). If you use abstract 
+classes to define types, you leave the programmer who wants to add functionality with no alternative but inheritance. 
+The resulting classes are less powerful and more fragile than wrapper classes.
+{Aaron notes: Above is an important design.}
+
+When there is an obvious implementation of an interface method in terms of other interface methods, consider providing 
+implementation assistance to programmers in the form of a default method. For an example of this technique, see the 
+removeIf method on page 104. If you provide default methods, be sure to document them for inheritance using the @implSpec 
+Javadoc tag (Item 19).
+
+There are limits on how much implementation assistance you can provide with default methods. Although many interfaces 
+specify the behavior of Object methods such as equals and hashCode, you are not permitted to provide default methods 
+for them. Also, interfaces are not permitted to contain instance fields or nonpublic static members 
+(with the exception of private static methods). Finally, you can’t add default methods to an interface that you don’t control.
+
+You can, however, combine the advantages of interfaces and abstract classes by providing an abstract skeletal 
+implementation class to go with an interface. The interface defines the type, perhaps providing some default methods, 
+while the skeletal implementation class implements the remaining non-primitive interface methods atop the primitive 
+interface methods. Extending a skeletal implementation takes most of the work out of implementing an interface. This 
+is the Template Method pattern [Gamma95].
+{Aaron notes: Above is an important design.}
+
+By convention, skeletal implementation classes are called AbstractInterface, where Interface is the name of the 
+interface they implement. For example, the Collections Framework provides a skeletal implementation to go along with 
+each main collection interface: AbstractCollection, AbstractSet, AbstractList, and AbstractMap. Arguably it would have 
+made sense to call them SkeletalCollection, SkeletalSet, SkeletalList, and SkeletalMap, but the Abstract convention is 
+now firmly established. When properly designed, skeletal implementations (whether a separate abstract class, or 
+consisting solely of default methods on an interface) can make it very easy for programmers to provide their own 
+implementations of an interface. For example, here’s a static factory method containing a complete, fully functional 
+List implementation atop AbstractList:
+
+```
+// Concrete implementation built atop skeletal implementation
+
+static List<Integer> intArrayAsList(int[] a) {
+
+    Objects.requireNonNull(a);
+    
+    // The diamond operator is only legal here in Java 9 and later
+    // If you're using an earlier release, specify <Integer>
+
+    return new AbstractList<>() {
+        @Override public Integer get(int i) {
+            return a[i];  // Autoboxing (Item 6)
+        }
+
+        @Override public Integer set(int i, Integer val) {
+            int oldVal = a[i];
+            a[i] = val;     // Auto-unboxing
+            return oldVal;  // Autoboxing
+        }
+        @Override public int size() {
+            return a.length;
+        }
+    };
+}
+```
+When you consider all that a List implementation does for you, this example is an impressive demonstration of the power 
+of skeletal implementations. Incidentally, this example is an Adapter [Gamma95] that allows an int array to be viewed as
+a list of Integer instances. Because of all the translation back and forth between int values and Integer instances 
+(boxing and unboxing), its performance is not terribly good. Note that the implementation takes the form of an anonymous
+class (Item 24).
+
+The beauty of skeletal implementation classes is that they provide all of the implementation assistance of abstract
+classes without imposing the severe constraints that abstract classes impose when they serve as type definitions. For
+most implementors of an interface with a skeletal implementation class, extending this class is the obvious choice, but 
+it is strictly optional. If a class cannot be made to extend the skeletal implementation, the class can always implement 
+the interface directly. The class still benefits from any default methods present on the interface itself. Furthermore, 
+the skeletal implementation can still aid the implementor’s task. The class implementing the interface can forward 
+invocations of interface methods to a contained instance of a private inner class that extends the skeletal 
+implementation. This technique, known as simulated multiple inheritance, is closely related to the wrapper class idiom 
+discussed in Item 18. It provides many of the benefits of multiple inheritance, while avoiding the pitfalls.
+{Aaron notes: Above is an important design.}
+
+Writing a skeletal implementation is a relatively simple, if somewhat tedious, process. First, study the interface and 
+decide which methods are the primitives in terms of which the others can be implemented. These primitives will be the 
+abstract methods in your skeletal implementation. Next, provide default methods in the interface for all of the methods 
+that can be implemented directly atop the primitives, but recall that you may not provide default methods for Object 
+methods such as equals and hashCode. If the primitives and default methods cover the interface, you’re done, and have no 
+need for a skeletal implementation class. Otherwise, write a class declared to implement the interface, with 
+implementations of all of the remaining interface methods. The class may contain any nonpublic fields ands methods 
+appropriate to the task.
+
+As a simple example, consider the Map.Entry interface. The obvious primitives are getKey, getValue, and (optionally) 
+setValue. The interface specifies the behavior of equals and hashCode, and there is an obvious implementation of toString 
+in terms of the primitives. Since you are not allowed to provide default implementations for the Object methods, all 
+implementations are placed in the skeletal implementation class:
+
+```
+// Skeletal implementation class
+
+public abstract class AbstractMapEntry<K,V> implements Map.Entry<K,V> {
+
+    // Entries in a modifiable map must override this method
+    @Override public V setValue(V value) {
+        throw new UnsupportedOperationException();
+    }
+
+
+    // Implements the general contract of Map.Entry.equals
+    @Override public boolean equals(Object o) {
+        if (o == this)
+            return true;
+        if (!(o instanceof Map.Entry))
+            return false;
+            
+        Map.Entry<?,?> e = (Map.Entry) o;
+
+        return Objects.equals(e.getKey(),  getKey())
+            && Objects.equals(e.getValue(), getValue());
+
+    }
+
+    // Implements the general contract of Map.Entry.hashCode
+    @Override public int hashCode() {
+        return Objects.hashCode(getKey())
+             ^ Objects.hashCode(getValue());
+    }
+
+    @Override public String toString() {
+        return getKey() + "=" + getValue();
+    }
+}
+```
+{Aaron notes: Above is an important design.}
+
+Note that this skeletal implementation could not be implemented in the Map.Entry interface or as a subinterface because 
+default methods are not permitted to override Object methods such as equals, hashCode, and toString.
+
+Because skeletal implementations are designed for inheritance, you should follow all of the design and documentation 
+guidelines in Item 19. For brevity’s sake, the documentation comments were omitted from the previous example, but good 
+documentation is absolutely essential in a skeletal implementation, whether it consists of default methods on an 
+interface or a separate abstract class.
+
+A minor variant on the skeletal implementation is the simple implementation, exemplified by AbstractMap.SimpleEntry. A 
+simple implementation is like a skeletal implementation in that it implements an interface and is designed for inheritance
+, but it differs in that it isn’t abstract: it is the simplest possible working implementation. You can use it as it 
+stands or subclass it as circumstances warrant.
+
+### To summarize, an interface is generally the best way to define a type that permits multiple implementations. If you export a nontrivial interface, you should strongly consider providing a skeletal implementation to go with it. To the extent possible, you should provide the skeletal implementation via default methods on the interface so that all implementors of the interface can make use of it. That said, restrictions on interfaces typically mandate that a skeletal implementation take the form of an abstract class.
 
 ##ITEM 21: DESIGN INTERFACES FOR POSTERITY
 
