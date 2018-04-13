@@ -1150,12 +1150,428 @@ stands or subclass it as circumstances warrant.
 ### To summarize, an interface is generally the best way to define a type that permits multiple implementations. If you export a nontrivial interface, you should strongly consider providing a skeletal implementation to go with it. To the extent possible, you should provide the skeletal implementation via default methods on the interface so that all implementors of the interface can make use of it. That said, restrictions on interfaces typically mandate that a skeletal implementation take the form of an abstract class.
 
 ##ITEM 21: DESIGN INTERFACES FOR POSTERITY
+ITEM 21: DESIGN INTERFACES FOR POSTERITY
+Prior to Java 8, it was impossible to add methods to interfaces without breaking existing implementations. If you added a new method to an interface, existing implementations would, in general, lack the method, resulting in a compile-time error. In Java 8, the default method construct was added [JLS 9.4], with the intent of allowing the addition of methods to existing interfaces. But adding new methods to existing interfaces is fraught with risk.
+
+The declaration for a default method includes a default implementation that is used by all classes that implement the interface but do not implement the default method. While the addition of default methods to Java makes it possible to add methods to an existing interface, there is no guarantee that these methods will work in all preexisting implementations. Default methods are “injected” into existing implementations without the knowledge or consent of their implementors. Before Java 8, these implementations were written with the tacit understanding that their interfaces would never acquire any new methods.
+
+Many new default methods were added to the core collection interfaces in Java 8, primarily to facilitate the use of lambdas (Chapter 6). The Java libraries’ default methods are high-quality general-purpose implementations, and in most cases, they work fine. But it is not always possible to write a default method that maintains all invariants of every conceivable implementation.
+
+For example, consider the removeIf method, which was added to the Collection interface in Java 8. This method removes all elements for which a given boolean function (or predicate) returns true. The default implementation is specified to traverse the collection using its iterator, invoking the predicate on each element, and using the iterator’s remove method to remove the elements for which the predicate returns true. Presumably the declaration looks something like this:
+
+```aidl
+// Default method added to the Collection interface in Java 8
+
+default boolean removeIf(Predicate<? super E> filter) {
+    Objects.requireNonNull(filter);
+    boolean result = false;
+    for (Iterator<E> it = iterator(); it.hasNext(); ) {
+        if (filter.test(it.next())) {
+            it.remove();
+            result = true;
+        }
+    }
+    return result;
+}
+```
+
+This is the best general-purpose implementation one could possibly write for the removeIf method, but sadly, it fails on some real-world Collection implementations. For example, consider org.apache.commons.collections4.-collection.SynchronizedCollection. This class, from the Apache Commons library, is similar to the one returned by the static factory Collections.-synchronizedCollection in java.util. The Apache version additionally provides the ability to use a client-supplied object for locking, in place of the collection. In other words, it is a wrapper class (Item 18), all of whose methods synchronize on a locking object before delegating to the wrapped collection.
+
+The Apache SynchronizedCollection class is still being actively maintained, but as of this writing, it does not override the removeIf method. If this class is used in conjunction with Java 8, it will therefore inherit the default implementation of removeIf, which does not, indeed cannot, maintain the class’s fundamental promise: to automatically synchronize around each method invocation. The default implementation knows nothing about synchronization and has no access to the field that contains the locking object. If a client calls the removeIf method on a SynchronizedCollection instance in the presence of concurrent modification of the collection by another thread, a ConcurrentModificationException or other unspecified behavior may result.
+
+In order to prevent this from happening in similar Java platform libraries implementations, such as the package-private class returned by Collections.synchronizedCollection, the JDK maintainers had to override the default removeIf implementation and other methods like it to perform the necessary synchronization before invoking the default implementation. Preexisting collection implementations that were not part of the Java platform did not have the opportunity to make analogous changes in lockstep with the interface change, and some have yet to do so.
+
+In the presence of default methods, existing implementations of an interface may compile without error or warning but fail at runtime. While not terribly common, this problem is not an isolated incident either. A handful of the methods added to the collections interfaces in Java 8 are known to be susceptible, and a handful of existing implementations are known to be affected.
+
+<b>Using default methods to add new methods to existing interfaces should be avoided unless the need is critical, 
+in which case you should think long and hard about whether an existing interface implementation might be broken by your default method implementation. </b>
+Default methods are, however, extremely useful for providing standard method implementations when an interface is created, to ease the task of implementing the interface (Item 20).
+{Aaron notes: Above is an important design.}
+
+It is also worth noting that default methods were not designed to support removing methods from interfaces or changing the signatures of existing methods. 
+Neither of these interface changes is possible without breaking existing clients.
+{Aaron notes: Above is an important design.}
+
+The moral is clear. Even though default methods are now a part of the Java platform, <b>it is still of the utmost importance to design interfaces with great care. </b>
+While default methods make it possible to add methods to existing interfaces, there is great risk in doing so. 
+If an interface contains a minor flaw, it may irritate its users forever; if an interface is severely deficient, it may doom the API that contains it.
+
+### Therefore, it is critically important to test each new interface before you release it. Multiple programmers should implement each interface in different ways. At a minimum, you should aim for three diverse implementations. Equally important is to write multiple client programs that use instances of each new interface to perform various tasks. This will go a long way toward ensuring that each interface satisfies all of its intended uses. These steps will allow you to discover flaws in interfaces before they are released, when you can still correct them easily. While it may be possible to correct some interface flaws after an interface is released, you cannot count on it.
 
 ##ITEM 22: USE INTERFACES ONLY TO DEFINE TYPES
 
+When a class implements an interface, the interface serves as a type that can be used to refer to instances of the class. 
+That a class implements an interface should therefore say something about what a client can do with instances of the class. 
+It is inappropriate to define an interface for any other purpose.
+
+One kind of interface that fails this test is the so-called constant interface. Such an interface contains no methods; 
+it consists solely of static final fields, each exporting a constant. 
+Classes using these constants implement the interface to avoid the need to qualify constant names with a class name. Here is an example:
+```
+public interface PhysicalConstants {
+
+    // Avogadro's number (1/mol)
+    static final double AVOGADROS_NUMBER   = 6.022_140_857e23;
+
+    // Boltzmann constant (J/K)
+    static final double BOLTZMANN_CONSTANT = 1.380_648_52e-23;
+
+    // Mass of the electron (kg)
+    static final double ELECTRON_MASS      = 9.109_383_56e-31;
+}
+```
+
+<b>The constant interface pattern is a poor use of interfaces.</b> That a class uses some constants internally is an implementation detail. 
+Implementing a constant interface causes this implementation detail to leak into the class’s exported API. 
+It is of no consequence to the users of a class that the class implements a constant interface. In fact, it may even confuse them. 
+Worse, it represents a commitment: if in a future release the class is modified so that it no longer needs to use the constants, 
+it still must implement the interface to ensure binary compatibility. If a nonfinal class implements a constant interface, 
+all of its subclasses will have their namespaces polluted by the constants in the interface.
+{Aaron notes: Above is an important design.}
+
+There are several constant interfaces in the Java platform libraries, such as java.io.ObjectStreamConstants. 
+These interfaces should be regarded as anomalies and should not be emulated.
+
+If you want to export constants, there are several reasonable choices. If the constants are strongly tied to an existing
+class or interface, you should add them to the class or interface. For example, all of the boxed numerical primitive classes,
+such as Integer and Double, export MIN_VALUE and MAX_VALUE constants. If the constants are best viewed as members of an
+enumerated type, you should export them with an enum type (Item 34). Otherwise, you should export the constants with a
+noninstantiable utility class (Item 4). Here is a utility class version of the PhysicalConstants example shown earlier:
+
+```aidl
+// Constant utility class
+package com.effectivejava.science;
+public class PhysicalConstants {
+
+  private PhysicalConstants() { }  // Prevents instantiation
+  public static final double AVOGADROS_NUMBER = 6.022_140_857e23;
+  public static final double BOLTZMANN_CONST  = 1.380_648_52e-23;
+  public static final double ELECTRON_MASS    = 9.109_383_56e-31;
+
+}
+```
+
+Incidentally, note the use of the underscore character (_) in the numeric literals. Underscores, which have been legal since Java 7,
+have no effect on the values of numeric literals, but can make them much easier to read if used with discretion.
+Consider adding underscores to numeric literals, whether fixed of floating point, if they contain five or more consecutive digits.
+For base ten literals, whether integral or floating point, you should use underscores to separate literals into groups of
+three digits indicating positive and negative powers of one thousand.
+
+Normally a utility class requires clients to qualify constant names with a class name, for example,
+PhysicalConstants.AVOGADROS_NUMBER. If you make heavy use of the constants exported by a utility class, you can avoid
+the need for qualifying the constants with the class name by making use of the static import facility:
+{Aaron notes: Above is an important design.}
+```aidl
+// Use of static import to avoid qualifying constants
+import static com.effectivejava.science.PhysicalConstants.*;
+
+public class Test {
+    double  atoms(double mols) {
+        return AVOGADROS_NUMBER * mols;
+    }
+    ...
+    // Many more uses of PhysicalConstants justify static import
+}
+```
+### In summary, interfaces should be used only to define types. They should not be used merely to export constants.
+
 ##ITEM 23: PREFER CLASS HIERARCHIES TO TAGGED CLASSES
+Occasionally you may run across a class whose instances come in two or more flavors and contain a tag field indicating
+the flavor of the instance. For example, consider this class, which is capable of representing a circle or a rectangle:
+
+```aidl
+// Tagged class - vastly inferior to a class hierarchy!
+class Figure {
+
+    enum Shape { RECTANGLE, CIRCLE };
+
+    // Tag field - the shape of this figure
+
+    final Shape shape;
+    // These fields are used only if shape is RECTANGLE
+    double length;
+    double width;
+
+    // This field is used only if shape is CIRCLE
+    double radius;
+
+    // Constructor for circle
+    Figure(double radius) {
+        shape = Shape.CIRCLE;
+        this.radius = radius;
+    }
+
+    // Constructor for rectangle
+    Figure(double length, double width) {
+        shape = Shape.RECTANGLE;
+        this.length = length;
+        this.width = width;
+    }
+
+    double area() {
+        switch(shape) {
+          case RECTANGLE:
+            return length * width;
+          case CIRCLE:
+            return Math.PI * (radius * radius);
+          default:
+            throw new AssertionError(shape);
+        }
+    }
+
+}
+```
+Such tagged classes have numerous shortcomings. They are cluttered with boilerplate, including enum declarations, 
+tag fields, and switch statements. Readability is further harmed because multiple implementations are jumbled together 
+in a single class. Memory footprint is increased because instances are burdened with irrelevant fields belonging to 
+other flavors. Fields can’t be made final unless constructors initialize irrelevant fields, resulting in more boilerplate. 
+Constructors must set the tag field and initialize the right data fields with no help from the compiler: if you 
+initialize the wrong fields, the program will fail at runtime. You can’t add a flavor to a tagged class unless you can 
+modify its source file. If you do add a flavor, you must remember to add a case to every switch statement, or the class 
+will fail at runtime. Finally, the data type of an instance gives no clue as to its flavor. <b>In short, tagged classes are
+verbose, error-prone, and inefficient.</b>
+
+Luckily, object-oriented languages such as Java offer a far better alternative for defining a single data type capable
+of representing objects of multiple flavors: subtyping. A tagged class is just a pallid imitation of a class hierarchy.
+
+To transform a tagged class into a class hierarchy, first define an abstract class containing an abstract method for each
+method in the tagged class whose behavior depends on the tag value. In the Figure class, there is only one such method, 
+which is area. This abstract class is the root of the class hierarchy. If there are any methods whose behavior does not 
+depend on the value of the tag, put them in this class. Similarly, if there are any data fields used by all the flavors, 
+put them in this class. There are no such flavor-independent methods or fields in the Figure class.
+
+Next, define a concrete subclass of the root class for each flavor of the original tagged class. In our example, there 
+are two: circle and rectangle. Include in each subclass the data fields particular to its flavor. In our example, radius 
+is particular to circle, and length and width are particular to rectangle. Also include in each subclass the appropriate 
+implementation of each abstract method in the root class. Here is the class hierarchy corresponding to the original 
+Figure class:
+
+```aidl
+// Class hierarchy replacement for a tagged class
+abstract class Figure {
+    abstract double area();
+}
+
+class Circle extends Figure {
+
+    final double radius;
+
+    Circle(double radius) { this.radius = radius; }
+
+    @Override double area() { return Math.PI * (radius * radius); }
+}
+
+
+class Rectangle extends Figure {
+
+    final double length;
+    final double width;
+    
+    Rectangle(double length, double width) {
+        this.length = length;
+        this.width  = width;
+    }
+    @Override double area() { return length * width; }
+}
+```
+This class hierarchy corrects every shortcoming of tagged classes noted previously. The code is simple and clear,
+containing none of the boilerplate found in the original. The implementation of each flavor is allotted its own class, 
+and none of these classes is encumbered by irrelevant data fields. All fields are final. The compiler ensures that each 
+class’s constructor initializes its data fields and that each class has an implementation for every abstract method 
+declared in the root class. This eliminates the possibility of a runtime failure due to a missing switch case. 
+Multiple programmers can extend the hierarchy independently and interoperably without access to the source for the root class. 
+There is a separate data type associated with each flavor, allowing programmers to indicate the flavor of a variable and
+to restrict variables and input parameters to a particular flavor.
+
+Another advantage of class hierarchies is that they can be made to reflect natural hierarchical relationships among types,
+allowing for increased flexibility and better compile-time type checking. Suppose the tagged class in the original 
+example also allowed for squares. The class hierarchy could be made to reflect the fact that a square is a special 
+kind of rectangle (assuming both are immutable):
+```aidl
+class Square extends Rectangle {
+    Square(double side) {
+        super(side, side);
+    }
+}
+```
+Note that the fields in the above hierarchy are accessed directly rather than by accessor methods. 
+This was done for brevity and would be a poor design if the hierarchy were public (Item 16).
+
+###In summary, tagged classes are seldom appropriate. If you’re tempted to write a class with an explicit tag field, think about whether the tag could be eliminated and the class replaced by a hierarchy. When you encounter an existing class with a tag field, consider refactoring it into a hierarchy.
 
 ##ITEM 24: FAVOR STATIC MEMBER CLASSES OVER NONSTATIC
+A nested class is a class defined within another class. A nested class should exist only to serve its enclosing class. 
+If a nested class would be useful in some other context, then it should be a top-level class. 
+There are four kinds of nested classes: static member classes, nonstatic member classes, anonymous classes, and local classes. 
+All but the first kind are known as inner classes. This item tells you when to use which kind of nested class and why.
+
+A static member class is the simplest kind of nested class. <b>It is best thought of as an ordinary class that happens to 
+be declared inside another class and has access to all of the enclosing class’s members, even those declared private.</b>
+A static member class is a static member of its enclosing class and obeys the same accessibility rules as other static 
+members. If it is declared private, it is accessible only within the enclosing class, and so forth.
+
+One common use of a static member class is as a public helper class, useful only in conjunction with its outer class.
+For example, consider an enum describing the operations supported by a calculator (Item 34). The Operation enum should
+be a public static member class of the Calculator class. Clients of Calculator could then refer to operations using names
+like Calculator.Operation.PLUS and Calculator.Operation.MINUS.
+
+Syntactically, the only difference between static and nonstatic member classes is that static member classes have the 
+modifier static in their declarations. Despite the syntactic similarity, these two kinds of nested classes are very 
+different. Each instance of a nonstatic member class is implicitly associated with an enclosing instance of its 
+containing class. Within instance methods of a nonstatic member class, you can invoke methods on the enclosing instance 
+or obtain a reference to the enclosing instance using the qualified this construct [JLS, 15.8.4]. If an instance of a 
+nested class can exist in isolation from an instance of its enclosing class, then the nested class must be a static 
+member class: it is impossible to create an instance of a nonstatic member class without an enclosing instance.
+
+The association between a nonstatic member class instance and its enclosing instance is established when the member class
+instance is created and cannot be modified thereafter. Normally, the association is established automatically by invoking
+a nonstatic member class constructor from within an instance method of the enclosing class. It is possible, though rare,
+to establish the association manually using the expression enclosingInstance.new MemberClass(args). As you would expect,
+the association takes up space in the nonstatic member class instance and adds time to its construction.
+
+One common use of a nonstatic member class is to define an Adapter [Gamma95] that allows an instance of the outer class 
+to be viewed as an instance of some unrelated class. For example, implementations of the Map interface typically use 
+nonstatic member classes to implement their collection views, which are returned by Map’s keySet, entrySet, and values 
+methods. Similarly, implementations of the collection interfaces, such as Set and List, typically use nonstatic member 
+classes to implement their iterators:
+
+```
+// Typical use of a nonstatic member class
+
+public class MySet<E> extends AbstractSet<E> {
+
+    ... // Bulk of the class omitted
+    @Override public Iterator<E> iterator() {
+        return new MyIterator();
+    }
+    private class MyIterator implements Iterator<E> {
+        ...
+    }
+}
+```
+
+<b>If you declare a member class that does not require access to an enclosing instance, always put the static modifier in 
+its declaration,</b>
+{Aaron notes: Above is an important design.}
+making it a static rather than a nonstatic member class. If you omit this modifier, each instance will 
+have a hidden extraneous reference to its enclosing instance. As previously mentioned, storing this reference takes time 
+and space. More seriously, it can result in the enclosing instance being retained when it would otherwise be eligible for 
+garbage collection (Item 7). The resulting memory leak can be catastrophic. It is often difficult to detect because the 
+reference is invisible.
+
+A common use of private static member classes is to represent components of the object represented by their enclosing
+class. For example, consider a Map instance, which associates keys with values. Many Map implementations have an internal 
+Entry object for each key-value pair in the map. While each entry is associated with a map, the methods on an entry 
+(getKey, getValue, and setValue) do not need access to the map. Therefore, it would be wasteful to use a nonstatic member 
+class to represent entries: a private static member class is best. If you accidentally omit the static modifier in the 
+entry declaration, the map will still work, but each entry will contain a superfluous reference to the map, which wastes space and time.
+{Aaron notes: Above is an important design.}
+
+It is doubly important to choose correctly between a static and a nonstatic member class if the class in question is a 
+public or protected member of an exported class. In this case, the member class is an exported API element and cannot be 
+changed from a nonstatic to a static member class in a subsequent release without violating backward compatibility.
+{Aaron notes: Above is an important design.}
+
+As you would expect, an anonymous class has no name. It is not a member of its enclosing class. 
+Rather than being declared along with other members, it is simultaneously declared and instantiated at the point of use.
+Anonymous classes are permitted at any point in the code where an expression is legal. 
+Anonymous classes have enclosing instances if and only if they occur in a nonstatic context. 
+But even if they occur in a static context, they cannot have any static members other than constant variables, 
+which are final primitive or string fields initialized to constant expressions [JLS, 4.12.4].
+
+There are many limitations on the applicability of anonymous classes. You can’t instantiate them except at the point they’re declared. 
+You can’t perform instanceof tests or do anything else that requires you to name the class. 
+You can’t declare an anonymous class to implement multiple interfaces or to extend a class and implement an interface at the same time. 
+Clients of an anonymous class can’t invoke any members except those it inherits from its supertype. 
+Because anonymous classes occur in the midst of expressions, they must be kept short—about ten lines or fewer—or readability will suffer.
+
+Before lambdas were added to Java (Chapter 6), anonymous classes were the preferred means of creating small function objects 
+and process objects on the fly, but lambdas are now preferred (Item 42). Another common use of anonymous classes is in the 
+implementation of static factory methods (see intArrayAsList in Item 20).
+{Aaron notes: Above is an important design.}
+
+Local classes are the least frequently used of the four kinds of nested classes. A local class can be declared practically 
+anywhere a local variable can be declared and obeys the same scoping rules. Local classes have attributes in common with 
+each of the other kinds of nested classes. Like member classes, they have names and can be used repeatedly. Like anonymous 
+classes, they have enclosing instances only if they are defined in a nonstatic context, and they cannot contain static members. 
+And like anonymous classes, they should be kept short so as not to harm readability.
+
+### To recap, there are four different kinds of nested classes, and each has its place. If a nested class needs to be visible outside of a single method or is too long to fit comfortably inside a method, use a member class. If each instance of a member class needs a reference to its enclosing instance, make it nonstatic; otherwise, make it static. Assuming the class belongs inside a method, if you need to create instances from only one location and there is a preexisting type that characterizes the class, make it an anonymous class; otherwise, make it a local class.
 
 ##ITEM 25: LIMIT SOURCE FILES TO A SINGLE TOP-LEVEL CLASS
 
+While the Java compiler lets you define multiple top-level classes in a single source file, there are no benefits associated 
+with doing so, and there are significant risks. The risks stem from the fact that defining multiple top-level classes in 
+a source file makes it possible to provide multiple definitions for a class. Which definition gets used is affected by 
+the order in which the source files are passed to the compiler.
+
+To make this concrete, consider this source file, which contains only a Main class that refers to members of two other 
+top-level classes (Utensil and Dessert):
+```aidl
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(Utensil.NAME + Dessert.NAME);
+    }
+}
+```
+
+Now suppose you define both Utensil and Dessert in a single source file named Utensil.java:
+```
+class Utensil {
+    static final String NAME = "pan";
+}
+
+class Dessert {
+    static final String NAME = "cake";
+}
+```
+Of course the main program prints pancake.
+
+Now suppose you accidentally make another source file named Dessert.java that defines the same two classes:
+```
+// Two classes defined in one file. Don't ever do this!
+class Utensil {
+    static final String NAME = "pot";
+}
+
+class Dessert {
+    static final String NAME = "pie";
+}
+```
+
+If you’re lucky enough to compile the program with the command javac Main.java Dessert.java, the compilation will fail, 
+and the compiler will tell you that you’ve multiply defined the classes Utensil and Dessert. This is so because the 
+compiler will first compile Main.java, and when it sees the reference to Utensil (which precedes the reference to Dessert), 
+it will look in Utensil.java for this class and find both Utensil and Dessert. When the compiler encounters Dessert.java 
+on the command line, it will pull in that file too, causing it to encounter both definitions of Utensil and Dessert.
+
+If you compile the program with the command javac Main.java or javac Main.java Utensil.java, it will behave as it did 
+before you wrote the Dessert.java file, printing pancake. But if you compile the program with the command javac 
+Dessert.java Main.java, it will print potpie. The behavior of the program is thus affected by the order in which the 
+source files are passed to the compiler, which is clearly unacceptable.
+
+Fixing the problem is as simple as splitting the top-level classes (Utensil and Dessert, in the case of our example) 
+into separate source files. If you are tempted to put multiple top-level classes into a single source file, 
+consider using static member classes (Item 24) as an alternative to splitting the classes into separate source files. 
+If the classes are subservient to another class, making them into static member classes is generally the better 
+alternative because it enhances readability and makes it possible to reduce the accessibility of the classes by declaring 
+them private (Item 15). Here is how our example looks with static member classes:
+
+```aidl
+// Static member classes instead of multiple top-level classes
+public class Test {
+    public static void main(String[] args) {
+        System.out.println(Utensil.NAME + Dessert.NAME);
+    }
+
+    private static class Utensil {
+        static final String NAME = "pan";
+    }
+
+    private static class Dessert {
+        static final String NAME = "cake";
+    }
+}
+```
+
+### The lesson is clear: <b>Never put multiple top-level classes or interfaces in a single source file.</b> Following this rule guarantees that you can’t have multiple definitions for a single class at compile time. This in turn guarantees that the class files generated by compilation, and the behavior of the resulting program, are independent of the order in which the source files are passed to the compiler.
