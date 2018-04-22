@@ -1084,7 +1084,7 @@ generic method internally. Clients of the swap method don’t have to confront t
 but they do benefit from it. It is worth noting that the helper method has precisely the signature that we dismissed as 
 too complex for the public method.
 
-### In summary, using wildcard types in your APIs, while tricky, makes the APIs far more flexible. If you write a library, 
+### In summary, using wildcard types in your APIs, while tricky, makes the APIs far more flexible. If you write a library,i 
 ### that will be widely used, the proper use of wildcard types should be considered mandatory. Remember the basic rule: 
 ### producer-extends, consumer-super (PECS). Also remember that all comparables and comparators are consumers.
 
