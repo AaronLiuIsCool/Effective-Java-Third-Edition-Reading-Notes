@@ -3,7 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="ce910e93-1bfd-4bdb-aac2-e2bbaba1a571" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change beforePath="$PROJECT_DIR$/src/chapter5/NOTES.md" afterPath="$PROJECT_DIR$/src/chapter5/NOTES.md" />
+      <change beforePath="$PROJECT_DIR$/src/chapter6/NOTES.md" afterPath="$PROJECT_DIR$/src/chapter6/NOTES.md" />
     </list>
     <ignored path="$PROJECT_DIR$/out/" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -15,12 +15,25 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="NOTES.md" pinned="false" current-in-tab="true">
+      <file leaf-file-name="NOTES.md" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/chapter5/NOTES.md">
           <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
             <state split_layout="SPLIT">
-              <first_editor relative-caret-position="2894">
-                <caret line="1472" column="3" lean-forward="true" selection-start-line="1472" selection-start-column="3" selection-end-line="1472" selection-end-column="3" />
+              <first_editor relative-caret-position="205">
+                <caret line="1290" column="0" lean-forward="false" selection-start-line="1290" selection-start-column="0" selection-end-line="1290" selection-end-column="0" />
+                <folding />
+              </first_editor>
+              <second_editor />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="NOTES.md" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/chapter6/NOTES.md">
+          <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+            <state split_layout="SPLIT">
+              <first_editor relative-caret-position="45">
+                <caret line="3" column="105" lean-forward="true" selection-start-line="3" selection-start-column="105" selection-end-line="3" selection-end-column="105" />
                 <folding />
               </first_editor>
               <second_editor />
@@ -64,7 +77,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/src/chapter6/NOTES.md" />
         <option value="$PROJECT_DIR$/src/chapter7/NOTES.md" />
         <option value="$PROJECT_DIR$/src/chapter8/NOTES.md" />
         <option value="$PROJECT_DIR$/src/chapter9/NOTES.md" />
@@ -77,6 +89,7 @@
         <option value="$PROJECT_DIR$/src/chapter4/NOTES.md" />
         <option value="$PROJECT_DIR$/.gitignore" />
         <option value="$PROJECT_DIR$/src/chapter5/NOTES.md" />
+        <option value="$PROJECT_DIR$/src/chapter6/NOTES.md" />
       </list>
     </option>
   </component>
@@ -114,6 +127,17 @@
             <path>
               <item name="Effective-Java-Third-Edition-Reading-Notes" type="b2602c69:ProjectViewProjectNode" />
               <item name="Effective-Java-Third-Edition-Reading-Notes" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="Effective-Java-Third-Edition-Reading-Notes" type="b2602c69:ProjectViewProjectNode" />
+              <item name="Effective-Java-Third-Edition-Reading-Notes" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="Effective-Java-Third-Edition-Reading-Notes" type="b2602c69:ProjectViewProjectNode" />
+              <item name="Effective-Java-Third-Edition-Reading-Notes" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="chapter6" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -217,7 +241,7 @@
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="55563000" />
+    <option name="totallyTimeSpent" value="55830000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="0" width="1680" height="1050" extended-state="0" />
@@ -235,7 +259,7 @@
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.05595238" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.25178573" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
@@ -628,16 +652,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/chapter6/NOTES.md">
-      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
-        <state split_layout="SPLIT">
-          <first_editor relative-caret-position="0">
-            <caret line="0" column="11" lean-forward="false" selection-start-line="0" selection-start-column="11" selection-end-line="0" selection-end-column="11" />
-          </first_editor>
-          <second_editor />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/chapter9/NOTES.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
         <state split_layout="SPLIT">
@@ -739,8 +753,19 @@
     <entry file="file://$PROJECT_DIR$/src/chapter5/NOTES.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
         <state split_layout="SPLIT">
-          <first_editor relative-caret-position="2894">
-            <caret line="1472" column="3" lean-forward="true" selection-start-line="1472" selection-start-column="3" selection-end-line="1472" selection-end-column="3" />
+          <first_editor relative-caret-position="205">
+            <caret line="1290" column="0" lean-forward="false" selection-start-line="1290" selection-start-column="0" selection-end-line="1290" selection-end-column="0" />
+            <folding />
+          </first_editor>
+          <second_editor />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/chapter6/NOTES.md">
+      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+        <state split_layout="SPLIT">
+          <first_editor relative-caret-position="45">
+            <caret line="3" column="105" lean-forward="true" selection-start-line="3" selection-start-column="105" selection-end-line="3" selection-end-column="105" />
             <folding />
           </first_editor>
           <second_editor />
