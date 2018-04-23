@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ce910e93-1bfd-4bdb-aac2-e2bbaba1a571" name="Default" comment="">
-      <change beforePath="" afterPath="$PROJECT_DIR$/.gitignore" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change beforePath="$PROJECT_DIR$/src/chapter5/NOTES.md" afterPath="$PROJECT_DIR$/src/chapter5/NOTES.md" />
     </list>
@@ -20,8 +19,8 @@
         <entry file="file://$PROJECT_DIR$/src/chapter5/NOTES.md">
           <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
             <state split_layout="SPLIT">
-              <first_editor relative-caret-position="4209">
-                <caret line="1086" column="123" lean-forward="false" selection-start-line="1086" selection-start-column="123" selection-end-line="1086" selection-end-column="123" />
+              <first_editor relative-caret-position="2894">
+                <caret line="1472" column="3" lean-forward="true" selection-start-line="1472" selection-start-column="3" selection-end-line="1472" selection-end-column="3" />
                 <folding />
               </first_editor>
               <second_editor />
@@ -88,10 +87,8 @@
     <sorting>DEFINITION_ORDER</sorting>
   </component>
   <component name="ProjectFrameBounds" fullScreen="true">
-    <option name="x" value="323" />
-    <option name="y" value="23" />
-    <option name="width" value="1357" />
-    <option name="height" value="942" />
+    <option name="width" value="1680" />
+    <option name="height" value="1050" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true">
     <ConfirmationsSetting value="2" id="Add" />
@@ -122,10 +119,10 @@
           <select />
         </subPane>
       </pane>
-      <pane id="PackagesPane" />
-      <pane id="Scratches" />
       <pane id="Scope" />
+      <pane id="Scratches" />
       <pane id="AndroidView" />
+      <pane id="PackagesPane" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -214,12 +211,13 @@
       <workItem from="1523647612202" duration="8426000" />
       <workItem from="1523767910133" duration="2009000" />
       <workItem from="1523904366586" duration="3544000" />
-      <workItem from="1524340844133" duration="5800000" />
+      <workItem from="1524340844133" duration="5875000" />
+      <workItem from="1524433063424" duration="3847000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="51641000" />
+    <option name="totallyTimeSpent" value="55563000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="0" width="1680" height="1050" extended-state="0" />
@@ -237,7 +235,7 @@
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.2345238" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.05595238" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
@@ -741,8 +739,8 @@
     <entry file="file://$PROJECT_DIR$/src/chapter5/NOTES.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
         <state split_layout="SPLIT">
-          <first_editor relative-caret-position="4209">
-            <caret line="1086" column="123" lean-forward="false" selection-start-line="1086" selection-start-column="123" selection-end-line="1086" selection-end-column="123" />
+          <first_editor relative-caret-position="2894">
+            <caret line="1472" column="3" lean-forward="true" selection-start-line="1472" selection-start-column="3" selection-end-line="1472" selection-end-column="3" />
             <folding />
           </first_editor>
           <second_editor />
