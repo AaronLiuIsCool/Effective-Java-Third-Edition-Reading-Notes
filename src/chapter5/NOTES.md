@@ -1288,7 +1288,7 @@ The resulting code is typesafe because it uses only generics, and not arrays.
 ### In summary, varargs and generics do not interact well because the varargs facility is a leaky abstraction built atop arrays, and arrays have different type rules from generics. Though generic varargs parameters are not typesafe, they are legal. If you choose to write a method with a generic (or parameterized) varargs parameter, first ensure that the method is typesafe, and then annotate it with @SafeVarargs so it is not unpleasant to use.
 
 ## ITEM 33: CONSIDER TYPESAFE HETEROGENEOUS CONTAINERS
-
+{Aaron notes: Above is an important design.}
 Common uses of generics include collections, such as Set<E> and Map<K,V>, and single-element containers, such as 
 ThreadLocal<T> and AtomicReference<T>. In all of these uses, it is the container that is parameterized. This limits you 
 to a fixed number of type parameters per container. Normally that is exactly what you want. A Set has a single type 
