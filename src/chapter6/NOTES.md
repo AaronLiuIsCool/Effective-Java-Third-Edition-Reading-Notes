@@ -1172,7 +1172,8 @@ them, but remember that there is more boilerplate in declaring and processing re
 repeatable annotations is error-prone.
 
 The testing framework in this item is just a toy, but it clearly demonstrates the superiority of annotations over naming 
-patterns, and it only scratches the surface of what you can do with them. If you write a tool that requires programmers {Aaron notes: Above is an important design.}
+patterns, and it only scratches the surface of what you can do with them. If you write a tool that requires programmers 
+{Aaron notes: Above is an important design.}
 to add information to source code, define appropriate annotation types. There is simply no reason to use naming patterns 
 when you can use annotations instead.
 
@@ -1180,4 +1181,168 @@ when you can use annotations instead.
 
 ## ITEM 40: CONSISTENTLY USE THE OVERRIDE ANNOTATION
 
-## ITEM 41: USE MARKER INTERFACES TO DEFINE TYPES
+The Java libraries contain several annotation types. For the typical programmer, the most important of these is @Override. 
+This annotation can be used only on method declarations, and it indicates that the annotated method declaration overrides 
+a declaration in a supertype. If you consistently use this annotation, it will protect you from a large class of nefarious 
+bugs. Consider this program, in which the class Bigram represents a bigram, or ordered pair of letters:
+
+```aidl
+// Can you spot the bug?
+
+public class Bigram {
+    private final char first;
+    private final char second;
+
+    public Bigram(char first, char second) {
+        this.first  = first;
+        this.second = second;
+    }
+
+    public boolean equals(Bigram b) {
+        return b.first == first && b.second == second;
+
+    }
+    
+    public int hashCode() {
+        return 31 * first + second;
+    }
+
+    public static void main(String[] args) {
+        Set<Bigram> s = new HashSet<>();
+        for (int i = 0; i < 10; i++)
+            for (char ch = 'a'; ch <= 'z'; ch++)
+                s.add(new Bigram(ch, ch));
+        System.out.println(s.size());
+    }
+}
+```
+The main program repeatedly adds twenty-six bigrams, each consisting of two identical lowercase letters, to a set. Then 
+it prints the size of the set. You might expect the program to print 26, as sets cannot contain duplicates. If you try 
+running the program, you’ll find that it prints not 26 but 260. What is wrong with it?
+
+Clearly, the author of the Bigram class intended to override the equals method (Item 10) and even remembered to override 
+hashCode in tandem (Item 11). Unfortunately, our hapless programmer failed to override equals, overloading it instead 
+(Item 52). To override Object.equals, you must define an equals method whose parameter is of type Object,
+{Aaron notes: Above is an important design.}
+but the parameter of Bigram’s equals method is not of type Object, so Bigram inherits the equals method from Object. 
+This equals method tests for object identity, just like the == operator. Each of the ten copies of each bigram is distinct 
+from the other nine, so they are deemed unequal by Object.equals, which explains why the program prints 260.
+
+Luckily, the compiler can help you find this error, but only if you help it by telling it that you intend to override 
+Object.equals. To do this, annotate Bigram.equals with @Override, as shown here:
+
+```aidl
+@Override
+public boolean equals(Bigram b) { 
+    return b.first == first && b.second == second;
+}
+```
+{Aaron notes: Above is an important design.}
+
+If you insert this annotation and try to recompile the program, the compiler will generate an error message like this:
+
+```aidl
+Bigram.java:10: method does not override or implement a method from a supertype
+    @Override public boolean equals(Bigram b) {
+    ^
+```
+You will immediately realize what you did wrong, slap yourself on the forehead, and replace the broken equals 
+implementation with a correct one (Item 10):
+
+```aidl
+@Override 
+public boolean equals(Object o) {
+    if (!(o instanceof Bigram))
+        return false;
+    Bigram b = (Bigram) o;
+    return b.first == first && b.second == second;
+}
+
+```
+
+Therefore, you should use the Override annotation on every method declaration that you believe to override a superclass
+declaration. There is one minor exception to this rule. If you are writing a class that is not labeled abstract and you 
+believe that it overrides an abstract method in its superclass, you needn’t bother putting the Override annotation on 
+that method. In a class that is not declared abstract, the compiler will emit an error message if you fail to override 
+an abstract superclass method. However, you might wish to draw attention to all of the methods in your class that 
+override superclass methods, in which case you should feel free to annotate these methods too. Most IDEs can be set to 
+insert Override annotations automatically when you elect to override a method.
+
+Most IDEs provide another reason to use the Override annotation consistently. If you enable the appropriate check, the 
+IDE will generate a warning if you have a method that doesn’t have an Override annotation but does override a superclass 
+method. If you use the Override annotation consistently, these warnings will alert you to unintentional overriding. They 
+complement the compiler’s error messages, which alert you to unintentional failure to override. Between the IDE and the 
+compiler, you can be sure that you’re overriding methods everywhere you want to and nowhere else.
+
+The Override annotation may be used on method declarations that override declarations from interfaces as well as classes. 
+With the advent of default methods, it is good practice to use Override on concrete implementations of interface methods 
+to ensure that the signature is correct. If you know that an interface does not have default methods, you may choose to 
+omit Override annotations on concrete implementations of interface methods to reduce clutter.
+
+In an abstract class or an interface, however, it is worth annotating all methods that you believe to override superclass 
+or superinterface methods, whether concrete or abstract. For example, the Set interface adds no new methods to the 
+Collection interface, so it should include Override annotations on all of its method declarations to ensure that it does 
+not accidentally add any new methods to the Collection interface.
+
+### In summary, the compiler can protect you from a great many errors if you use the Override annotation on every method 
+### declaration that you believe to override a supertype declaration, with one exception. In concrete classes, you need not 
+### annotate methods that you believe to override abstract method declarations (though it is not harmful to do so).
+
+## ITEM 41: USE MARKER INTERFACES TO DEFINE TYPES. 
+{Aaron notes: I don't really understand this chapter if there is no example to support.}
+
+A marker interface is an interface that contains no method declarations but merely designates (or “marks”) a class that 
+implements the interface as having some property. For example, consider the Serializable interface (Chapter 12). By 
+implementing this interface, a class indicates that its instances can be written to an ObjectOutputStream (or “serialized”).
+
+You may hear it said that marker annotations (Item 39) make marker interfaces obsolete. This assertion is incorrect. 
+Marker interfaces have two advantages over marker annotations. First and foremost, <b>marker interfaces define a type that 
+is implemented by instances of the marked class; marker annotations do not.</b> The existence of a marker interface type 
+allows you to catch errors at compile time that you couldn’t catch until runtime if you used a marker annotation.
+{Aaron notes: Above is an important design.}
+
+Java’s serialization facility (Chapter 6) uses the Serializable marker interface to indicate that a type is serializable. 
+The ObjectOutputStream.writeObject method, which serializes the object that is passed to it, requires that its argument 
+be serializable. Had the argument of this method been of type Serializable, an attempt to serialize an inappropriate 
+object would have been detected at compile time (by type checking). Compile-time error detection is the intent of marker {Aaron notes: Above is an important design.}
+interfaces, but unfortunately, the ObjectOutputStream.write API does not take advantage of the Serializable interface: 
+its argument is declared to be of type Object, so attempts to serialize an unserializable object won’t fail until runtime.
+
+<b>Another advantage of marker interfaces over marker annotations is that they can be targeted more precisely.</b> If an 
+annotation type is declared with target ElementType.TYPE, it can be applied to any class or interface. Suppose you have 
+a marker that is applicable only to implementations of a particular interface. If you define it as a marker interface, 
+you can have it extend the sole interface to which it is applicable, guaranteeing that all marked types are also subtypes 
+of the sole interface to which it is applicable.
+
+Arguably, the Set interface is just such a restricted marker interface. It is applicable only to Collection subtypes, but 
+it adds no methods beyond those defined by Collection. It is not generally considered to be a marker interface because it 
+refines the contracts of several Collection methods, including add, equals, and hashCode. But it is easy to imagine a 
+marker interface that is applicable only to subtypes of some particular interface and does not refine the contracts of 
+any of the interface’s methods. Such a marker interface might describe some invariant of the entire object or indicate 
+that instances are eligible for processing by a method of some other class (in the way that the Serializable interface 
+indicates that instances are eligible for processing by ObjectOutputStream).
+
+<b>The chief advantage of marker annotations over marker interfaces is that they are part of the larger annotation facility.</b>
+{Aaron notes: Above is an important design.} 
+Therefore, marker annotations allow for consistency in annotation-based frameworks.
+
+So when should you use a marker annotation and when should you use a marker interface? Clearly you must use an annotation 
+if the marker applies to any program element other than a class or interface, because only classes and interfaces can be 
+made to implement or extend an interface. If the marker applies only to classes and interfaces, ask yourself the question 
+“Might I want to write one or more methods that accept only objects that have this marking?” If so, you should use a
+{Aaron notes: Above is an important design.} 
+marker interface in preference to an annotation. This will make it possible for you to use the interface as a parameter 
+type for the methods in question, which will result in the benefit of compile-time type checking. If you can convince 
+yourself that you’ll never want to write a method that accepts only objects with the marking, then you’re probably better 
+off using a marker annotation. If, additionally, the marking is part of a framework that makes heavy use of annotations, 
+then a marker annotation is the clear choice.
+
+### In summary, marker interfaces and marker annotations both have their uses. If you want to define a type that does not 
+### have any new methods associated with it, a marker interface is the way to go. If you want to mark program elements 
+### other than classes and interfaces or to fit the marker into a framework that already makes heavy use of annotation 
+### types, then a marker annotation is the correct choice. If you find yourself writing a marker annotation type whose 
+### target is ElementType.TYPE, take the time to figure out whether it really should be an annotation type or whether a 
+### marker interface would be more appropriate.
+
+In a sense, this item is the inverse of Item 22, which says, “If you don’t want to define a type, don’t use an interface.” 
+To a first approximation, this item says, “If you do want to define a type, do use an interface.”
