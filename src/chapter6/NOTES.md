@@ -1304,7 +1304,8 @@ allows you to catch errors at compile time that you couldn’t catch until runti
 Java’s serialization facility (Chapter 6) uses the Serializable marker interface to indicate that a type is serializable. 
 The ObjectOutputStream.writeObject method, which serializes the object that is passed to it, requires that its argument 
 be serializable. Had the argument of this method been of type Serializable, an attempt to serialize an inappropriate 
-object would have been detected at compile time (by type checking). Compile-time error detection is the intent of marker {Aaron notes: Above is an important design.}
+object would have been detected at compile time (by type checking). Compile-time error detection is the intent of marker 
+{Aaron notes: Above is an important design.}
 interfaces, but unfortunately, the ObjectOutputStream.write API does not take advantage of the Serializable interface: 
 its argument is declared to be of type Object, so attempts to serialize an unserializable object won’t fail until runtime.
 
