@@ -7,7 +7,7 @@ Reading Effective Java, Third Edition in 11 days (3 hours per day) and make note
 - [X] Chapter 4: Classes and Interfaces
 - [X] Chapter 5: Generics
 - [X] Chapter 6: Enums and Annotations
-- [ ] Chapter 7: Lambdas and Streams 
+- [X] Chapter 7: Lambdas and Streams 
 - [ ] Chapter 8: Methods
 - [ ] Chapter 9: General Programming
 - [ ] Chapter 10: Exceptions
