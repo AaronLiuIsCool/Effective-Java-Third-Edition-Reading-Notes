@@ -46,7 +46,9 @@ structure, then the system could be loose couple as much as possible.} </b>
 
 If a package-private top-level class or interface is used by only one class, consider making the top-level class a private
 static nested class of the sole class that uses it (Item 24). This reduces its accessibility from all the classes in its
-package to the one class that uses it. But it is far more important to reduce the accessibility of a gratuitously public class than of a package-private top-level class: the public class is part of the package’s API, while the package-private top-level class is already part of its implementation.
+package to the one class that uses it. But it is far more important to reduce the accessibility of a gratuitously public 
+class than of a package-private top-level class: the public class is part of the package’s API, while the package-private 
+top-level class is already part of its implementation.
 
 For members (fields, methods, nested classes, and nested interfaces), there are four possible access levels, listed here
 in order of increasing accessibility:
@@ -122,17 +124,18 @@ public static final List<Thing> VALUES =
 
    Collections.unmodifiableList(Arrays.asList(PRIVATE_VALUES));
 ```
+{Aaron notes: Above is an important design.}
+
 Alternatively, you can make the array private and add a public method that returns a copy of a private array:
 
 ```
 private static final Thing[] PRIVATE_VALUES = { ... };
 
 public static final Thing[] values() {
-
     return PRIVATE_VALUES.clone();
-
 }
 ```
+{Aaron notes: Above is an important design.}
 To choose between these alternatives, think about what the client is likely to do with the result. Which return type 
 will be more convenient? Which will give better performance?
 
@@ -160,13 +163,13 @@ access to non-modularized packages from within your modules [Reinhold, 3]. It is
 achieve widespread use outside of the JDK itself. In the meantime, it seems best to avoid them unless you have a
 compelling need.
 
-To summarize, you should reduce accessibility of program elements as much as possible (within reason). After carefully
-designing a minimal public API, you should prevent any stray classes, interfaces, or members from becoming part of the
-API. With the exception of public static final fields, which serve as constants, public classes should have no
-public fields. Ensure that objects referenced by public static final fields are immutable.
+### To summarize, you should reduce accessibility of program elements as much as possible (within reason). After carefully
+### designing a minimal public API, you should prevent any stray classes, interfaces, or members from becoming part of the
+### API. With the exception of public static final fields, which serve as constants, public classes should have no
+### public fields. Ensure that objects referenced by public static final fields are immutable.
 {Aaron notes: Above is an important design.} 
 
-##ITEM 16: IN PUBLIC CLASSES, USE ACCESSOR METHODS, NOT PUBLIC FIELDS
+## ITEM 16: IN PUBLIC CLASSES, USE ACCESSOR METHODS, NOT PUBLIC FIELDS
 
 Occasionally, you may be tempted to write degenerate classes that serve no purpose other than to group instance fields:
 
