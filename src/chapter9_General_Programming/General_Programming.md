@@ -1,5 +1,9 @@
 # Chapter 9. General Programming
 
+THIS chapter is devoted to the nuts and bolts of the language. It discusses local variables, control structures, libraries, 
+data types, and two extralinguistic facilities: reflection and native methods. Finally, it discusses optimization and 
+naming conventions.
+
 ## ITEM 57: MINIMIZE THE SCOPE OF LOCAL VARIABLES
 
 ## ITEM 58: PREFER FOR-EACH LOOPS TO TRADITIONAL FOR LOOPS
