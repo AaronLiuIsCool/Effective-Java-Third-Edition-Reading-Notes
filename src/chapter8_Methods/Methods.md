@@ -996,11 +996,22 @@ Notice the use of HTML tags in this doc comment (<p> and <i>). The Javadoc utili
 and arbitrary HTML elements in doc comments end up in the resulting HTML document. Occasionally, programmers go so far 
 as to embed HTML tables in their doc comments, although this is rare.
 
-Also notice the use of the Javadoc {@code} tag around the code fragment in the @throws clause. This tag serves two purposes: it causes the code fragment to be rendered in code font, and it suppresses processing of HTML markup and nested Javadoc tags in the code fragment. The latter property is what allows us to use the less-than sign (<) in the code fragment even though it’s an HTML metacharacter. To include a multiline code example in a doc comment, use a Javadoc {@code} tag wrapped inside an HTML <pre> tag. In other words, precede the code example with the characters <pre>{@code and follow it with }</pre>. This preserves line breaks in the code, and eliminates the need to escape HTML metacharacters, but not the at sign (@), which must be escaped if the code sample uses annotations.
+Also notice the use of the Javadoc {@code} tag around the code fragment in the @throws clause. This tag serves two purposes: 
+it causes the code fragment to be rendered in code font, and it suppresses processing of HTML markup and nested Javadoc 
+tags in the code fragment. The latter property is what allows us to use the less-than sign (<) in the code fragment 
+even though it’s an HTML metacharacter. To include a multiline code example in a doc comment, use a Javadoc {@code} tag 
+wrapped inside an HTML pre tag. In other words, precede the code example with the characters 
+<pre>{@code and follow it with }</pre>. This preserves line breaks in the code, and eliminates the need to escape HTML 
+metacharacters, but not the at sign (@), which must be escaped if the code sample uses annotations.
 
-Finally, notice the use of the words “this list” in the doc comment. By convention, the word “this” refers to the object on which a method is invoked when it is used in the doc comment for an instance method.
+Finally, notice the use of the words “this list” in the doc comment. By convention, the word “this” refers to the object 
+on which a method is invoked when it is used in the doc comment for an instance method.
 
-As mentioned in Item 15, when you design a class for inheritance, you must document its self-use patterns, so programmers know the semantics of overriding its methods. These self-use patterns should be documented using the @implSpec tag, added in Java 8. Recall that ordinary doc comments describe the contract between a method and its client; @implSpec comments, by contrast, describe the contract between a method and its subclass, allowing subclasses to rely on implementation behavior if they inherit the method or call it via super. Here's how it looks in practice:
+As mentioned in Item 15, when you design a class for inheritance, you must document its self-use patterns, so programmers 
+know the semantics of overriding its methods. These self-use patterns should be documented using the @implSpec tag, added 
+in Java 8. Recall that ordinary doc comments describe the contract between a method and its client; @implSpec comments, 
+by contrast, describe the contract between a method and its subclass, allowing subclasses to rely on implementation 
+behavior if they inherit the method or call it via super. Here's how it looks in practice:
 
 ```aidl
 /**
