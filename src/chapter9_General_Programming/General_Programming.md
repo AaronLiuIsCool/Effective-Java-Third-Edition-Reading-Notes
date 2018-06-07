@@ -695,7 +695,12 @@ public String statement() {
 }
 ```
 A lot of work has gone into making string concatenation faster since Java 6, but the difference in the 
-performance of the two methods is still dramatic: If numItems returns 100 and lineForItem returns an 80-character string, the second method runs 6.5 times faster than the first on my machine. Because the first method is quadratic in the number of items and the second is linear, the performance difference gets much larger as the number of items grows. Note that the second method preallocates a StringBuilder large enough to hold the entire result, eliminating the need for automatic growth. Even if it is detuned to use a default-sized StringBuilder, it is still 5.5 times faster than the first method.
+performance of the two methods is still dramatic: If numItems returns 100 and lineForItem returns an 80-character 
+string, the second method runs 6.5 times faster than the first on my machine. Because the first method is quadratic in 
+the number of items and the second is linear, the performance difference gets much larger as the number of items grows. 
+Note that the second method preallocates a StringBuilder large enough to hold the entire result, eliminating the need 
+for automatic growth. Even if it is detuned to use a default-sized StringBuilder, it is still 5.5 times faster than 
+the first method.
 
 ### The moral is simple: <b>Don’t use the string concatenation operator to combine more than a few strings unless performance is irrelevant.</b> Use StringBuilder’s append method instead. Alternatively, use a character array, or process the strings one at a time instead of combining them.
 {Aaron notes: Above is an important design.}
@@ -711,23 +716,14 @@ To make this concrete, consider the case of LinkedHashSet, which is an implement
 in the habit of typing this:
 
 ```aidl
-
-```
-
 // Good - uses interface as type
-
 Set<Son> sonSet = new LinkedHashSet<>();
-
-not this:
-
-```aidl
-
 ```
-
+not this:
+```aidl
 // Bad - uses class as type!
-
 LinkedHashSet<Son> sonSet = new LinkedHashSet<>();
-
+```
 <b>If you get into the habit of using interfaces as types, your program will be much more flexible.</b> If you 
 decide that you want to switch implementations, all you have to do is change the class name in the constructor
 (or use a different static factory). For example, the first declaration could be changed to read:
@@ -892,6 +888,139 @@ functionality.
 
 ## ITEM 66: USE NATIVE METHODS JUDICIOUSLY
 
+The Java Native Interface (JNI) allows Java programs to call native methods, which are methods written in native 
+programming languages such as C or C++. Historically, native methods have had three main uses. They provide access to 
+platform-specific facilities such as registries. They provide access to existing libraries of native code, including 
+legacy libraries that provide access to legacy data. Finally, native methods are used to write performance-critical 
+parts of applications in native languages for improved performance.
+
+It is legitimate to use native methods to access platform-specific facilities, but it is seldom necessary: as the Java 
+platform matured, it provided access to many features previously found only in host platforms. For example, the process 
+API, added in Java 9, provides access to OS processes. It is also legitimate to use native methods to use native 
+libraries when no equivalent libraries are available in Java.
+
+<b>It is rarely advisable to use native methods for improved performance.</b> In early releases (prior to Java 3), 
+it was often necessary, but JVMs have gotten much faster since then. For most tasks, it is now possible to 
+obtain comparable performance in Java. For example, when java.math was added in release 1.1, BigInteger relied on a 
+then-fast multiprecision arithmetic library written in C. In Java 3, BigInteger was reimplemented in Java, and 
+carefully tuned to the point where it ran faster than the original native implementation.
+
+A sad coda to this story is that BigInteger has changed little since then, with the exception of faster multiplication 
+for large numbers in Java 8. In that time, work continued apace on native libraries, notably GNU Multiple Precision 
+arithmetic library (GMP). Java programmers in need of truly high-performance multiprecision arithmetic are now justified 
+in using GMP via native methods [Blum14].
+
+The use of native methods has serious disadvantages. Because native languages are not safe (Item 50), applications using native methods are no longer immune to memory corruption errors. Because native languages are more platform-dependent than Java, programs using native methods are less portable. They are also harder to debug. If you aren’t careful, native methods can decrease performance because the garbage collector can’t automate, or even track, native memory usage (Item 8), and there is a cost associated with going into and out of native code. Finally, native methods require “glue code” that is difficult to read and tedious to write.
+
+### In summary, think twice before using native methods. It is rare that you need to use them for improved performance. If you must use native methods to access low-level resources or native libraries, use as little native code as possible and test it thoroughly. A single bug in the native code can corrupt your entire application.
+{Aaron notes: Above is an important design.}
+
 ## ITEM 67: OPTIMIZE JUDICIOUSLY
+
+There are three aphorisms concerning optimization that everyone should know:
+
+1. More computing sins are committed in the name of efficiency (without necessarily achieving it) than for any 
+other single reason—including blind stupidity.
+—William A. Wulf [Wulf72]
+
+2. We should forget about small efficiencies, say about 97% of the time: premature optimization is the root of all 
+evil.
+—Donald E. Knuth [Knuth74]
+
+3. We follow two rules in the matter of optimization:
+
+Rule 1. Don’t do it.
+Rule 2 (for experts only). Don’t do it yet—that is, not until you have a perfectly clear and unoptimized solution.
+—M. A. Jackson [Jackson75]
+
+All of these aphorisms predate the Java programming language by two decades. They tell a deep truth about 
+optimization: it is easy to do more harm than good, especially if you optimize prematurely. In the process, you 
+may produce software that is neither fast nor correct and cannot easily be fixed.
+
+Don’t sacrifice sound architectural principles for performance. <b>Strive to write good programs rather than fast 
+ones.</b> If a good program is not fast enough, its architecture will allow it to be optimized. Good programs embody 
+the principle of information hiding: where possible, they localize design decisions within individual components,
+so individual decisions can be changed without affecting the remainder of the system (Item 15).
+{Aaron notes: Above is an important design.}
+
+This does not mean that you can ignore performance concerns until your program is complete. Implementation problems 
+can be fixed by later optimization, but pervasive architectural flaws that limit performance can be impossible to 
+fix without rewriting the system. Changing a fundamental facet of your design after the fact can result in an 
+ill-structured system that is difficult to maintain and evolve. Therefore you must think about performance during 
+the design process.
+{Aaron notes: Above is an important design.}
+
+<b>Strive to avoid design decisions that limit performance.</b> The components of a design that are most difficult to 
+change after the fact are those specifying interactions between components and with the outside world. Chief 
+among these design components are APIs, wire-level protocols, and persistent data formats. Not only are these 
+design components difficult or impossible to change after the fact, but all of them can place significant 
+limitations on the performance that a system can ever achieve.
+
+Consider the performance consequences of your API design decisions. Making a public type mutable may require a 
+lot of needless defensive copying (Item 50). Similarly, using inheritance in a public class where composition 
+would have been appropriate ties the class forever to its superclass, which can place artificial limits on the 
+performance of the subclass (Item 18). As a final example, using an implementation type rather than an 
+interface in an API ties you to a specific implementation, even though faster implementations may be written in 
+the future (Item 64).
+
+The effects of API design on performance are very real. Consider the getSize method in the java.awt.Component 
+class. The decision that this performance-critical method was to return a Dimension instance, coupled with the 
+decision that Dimension instances are mutable, forces any implementation of this method to allocate a 
+new Dimension instance on every invocation. Even though allocating small objects is inexpensive on a modern VM, 
+allocating millions of objects needlessly can do real harm to performance.
+
+Several API design alternatives existed. Ideally, Dimension should have been immutable (Item 17); alternatively, 
+getSize could have been replaced by two methods returning the individual primitive components of a Dimension 
+object. In fact, two such methods were added to Component in Java 2 for performance reasons. Preexisting client 
+code, however, still uses the getSize method and still suffers the performance consequences of the original API 
+design decisions.
+
+Luckily, it is generally the case that good API design is consistent with good performance. <b>It is a very bad idea
+to warp an API to achieve good performance.</b> The performance issue that caused you to warp the API may go away in 
+a future release of the platform or other underlying software, but the warped API and the support headaches that 
+come with it will be with you forever.
+
+Once you’ve carefully designed your program and produced a clear, concise, and well-structured implementation, 
+then it may be time to consider optimization, assuming you’re not already satisfied with the performance of 
+the program.
+
+Recall that Jackson’s two rules of optimization were “Don’t do it,” and “(for experts only). Don’t do it yet.” 
+He could have added one more:<b> measure performance before and after each attempted optimization.</b> You may be 
+surprised by what you find. Often, attempted optimizations have no measurable effect on performance; 
+sometimes, they make it worse. The main reason is that it’s difficult to guess where your program is spending 
+its time. The part of the program that you think is slow may not be at fault, in which case you’d be wasting 
+your time trying to optimize it. Common wisdom says that programs spend 90 percent of their time in 10 
+percent of their code.
+
+Profiling tools can help you decide where to focus your optimization efforts. These tools give you runtime 
+information, such as roughly how much time each method is consuming and how many times it is invoked. In 
+addition to focusing your tuning efforts, this can alert you to the need for algorithmic changes. If a 
+quadratic (or worse) algorithm lurks inside your program, no amount of tuning will fix the problem. You 
+must replace the algorithm with one that is more efficient. The more code in the system, the more important 
+it is to use a profiler. It’s like looking for a needle in a haystack: the bigger the haystack, the more 
+useful it is to have a metal detector. Another tool that deserves special mention is jmh, which is not a profiler 
+but a micro-benchmarking framework that provides unparalleled visibility into the detailed performance of Java 
+code [JMH].
+{Aaron notes: Above is an important design.}
+
+The need to measure the effects of attempted optimization is even greater in Java than in more traditional 
+languages such as C and C++, because Java has a weaker performance model: The relative cost of the various 
+primitive operations is less well defined. The “abstraction gap” between what the programmer writes and what 
+the CPU executes is greater, which makes it even more difficult to reliably predict the performance consequences 
+of optimizations. There are plenty of performance myths floating around that turn out to be half-truths or outright lies.
+
+Not only is Java’s performance model ill-defined, but it varies from implementation to implementation, from release 
+to release, and from processor to processor. If you will be running your program on multiple implementations 
+or multiple hardware platforms, it is important that you measure the effects of your optimization on each. 
+Occasionally you may be forced to make trade-offs between performance on different implementations or hardware 
+platforms.
+
+In the nearly two decades since this item was first written, every component of the Java software stack has 
+grown in complexity, from processors to VMs to libraries, and the variety of hardware on which Java runs 
+has grown immensely. All of this has combined to make the performance of Java programs even less predictable
+now than it was in 2001, with a corresponding increase in the need to measure it.
+
+### To summarize, do not strive to write fast programs—strive to write good ones; speed will follow. But do think about performance while you’re designing systems, especially while you’re designing APIs, wire-level protocols, and persistent data formats. When you’ve finished building the system, measure its performance. If it’s fast enough, you’re done. If not, locate the source of the problem with the aid of a profiler and go to work optimizing the relevant parts of the system. The first step is to examine your choice of algorithms: no amount of low-level optimization can make up for a poor choice of algorithm. Repeat this process as necessary, measuring the performance after every change, until you’re satisfied.
+{Aaron notes: Above is an important design.}
 
 ## ITEM 68: ADHERE TO GENERALLY ACCEPTED NAMING CONVENTIONS
