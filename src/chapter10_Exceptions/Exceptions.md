@@ -171,9 +171,231 @@ to relay the amount to the shopper. See Item 75 for more on this topic.
 
 ### ITEM 71: AVOID UNNECESSARY USE OF CHECKED EXCEPTIONS
 
+Many Java programmers dislike checked exceptions, but used properly, they can improve APIs and programs. Unlike return 
+codes and unchecked exceptions, they force programmers to deal with problems, enhancing reliability. That said, 
+overuse of checked exceptions in APIs can make them far less pleasant to use. If a method throws checked exceptions, 
+the code that invokes it must handle them in one or more catch blocks, or declare that it throws them and let them 
+propagate outward. Either way, it places a burden on the user of the API. The burden increased in Java 8, as methods 
+throwing checked exceptions can’t be used directly in streams (Items 45–48).
+
+This burden may be justified if the exceptional condition cannot be prevented by proper use of the API and the 
+programmer using the API can take some useful action once confronted with the exception. Unless both of these 
+conditions are met, an unchecked exception is appropriate. As a litmus test, ask yourself how the programmer will 
+handle the exception. Is this the best that can be done?
+
+```aidl
+} catch (TheCheckedException e) {
+    throw new AssertionError(); // Can't happen!
+}
+```
+Or this?
+```aidl
+} catch (TheCheckedException e) {
+    e.printStackTrace();        // Oh well, we lose.
+    System.exit(1);
+}
+```
+If the programmer can do no better, an unchecked exception is called for.
+
+The additional burden on the programmer caused by a checked exception is substantially higher if it is the sole checked 
+exception thrown by a method. If there are others, the method must already appear in a try block, and this exception 
+requires, at most, another catch block. If a method throws a single checked exception, this exception is the sole reason 
+the method must appear in a try block and can’t be used directly in streams. Under these circumstances, it pays to ask 
+yourself if there is a way to avoid the checked exception.
+
+The easiest way to eliminate a checked exception is to return an optional of the desired result type (Item 55). Instead 
+of throwing a checked exception, the method simply returns an empty optional. The disadvantage of this technique is that 
+the method can’t return any additional information detailing its inability to perform the desired computation. Exceptions, 
+by contrast, have descriptive types, and can export methods to provide additional information (Item 70).
+{Aaron notes: Above is an important design.}
+
+You can also turn a checked exception into an unchecked exception by breaking the method that throws the exception into 
+two methods, the first of which returns a boolean indicating whether the exception would be thrown. This API refactoring 
+transforms the calling sequence from this:
+```aidl
+// Invocation with checked exception
+try {
+    obj.action(args);
+} catch (TheCheckedException e) {
+    ... // Handle exceptional condition
+}
+```
+into this:
+```aidl
+// Invocation with state-testing method and unchecked exception
+if (obj.actionPermitted(args)) {
+    obj.action(args);
+} else {
+    ... // Handle exceptional condition
+}
+```
+This refactoring is not always appropriate, but where it is, it can make an API more pleasant to use. While the latter 
+calling sequence is no prettier than the former, the refactored API is more flexible. If the programmer knows the call 
+will succeed, or is content to let the thread terminate if it fails, the refactoring also allows this trivial calling 
+sequence:
+```aidl
+obj.action(args);
+```
+If you suspect that the trivial calling sequence will be the norm, then the API refactoring may be appropriate. The 
+resulting API is essentially the state-testing method API in Item 69 and the same caveats apply: if an object is to 
+be accessed concurrently without external synchronization or it is subject to externally induced state transitions, 
+this refactoring is inappropriate because the object’s state may change between the calls to actionPermitted and 
+action. If a separate actionPermitted method would duplicate the work of the action method, the refactoring may be 
+ruled out on performance grounds.
+
+### In summary, when used sparingly, checked exceptions can increase the reliability of programs; when overused, they make APIs painful to use. If callers won’t be able to recover from failures, throw unchecked exceptions. If recovery may be possible and you want to force callers to handle exceptional conditions, first consider returning an optional. Only if this would provide insufficient information in the case of failure should you throw a checked exception.
+
 ### ITEM 72: FAVOR THE USE OF STANDARD EXCEPTIONS
 
+An attribute that distinguishes expert programmers from less experienced ones is that experts strive for and usually 
+achieve a high degree of code reuse. Exceptions are no exception to the rule that code reuse is a good thing. The Java 
+libraries provide a set of exceptions that covers most of the exception-throwing needs of most APIs.
+
+Reusing standard exceptions has several benefits. Chief among them is that it makes your API easier to learn and use
+because it matches the established conventions that programmers are already familiar with. A close second is that 
+programs using your API are easier to read because they aren’t cluttered with unfamiliar exceptions. Last (and least),
+fewer exception classes means a smaller memory footprint and less time spent loading classes.
+
+The most commonly reused exception type is IllegalArgumentException (Item 49). This is generally the exception to throw
+when the caller passes in an argument whose value is inappropriate. For example, this would be the exception to throw 
+if the caller passed a negative number in a parameter representing the number of times some action was to be repeated.
+
+Another commonly reused exception is IllegalStateException. This is generally the exception to throw if the invocation 
+is illegal because of the state of the receiving object. For example, this would be the exception to throw if the 
+caller attempted to use some object before it had been properly initialized.
+
+Arguably, every erroneous method invocation boils down to an illegal argument or state, but other exceptions are 
+standardly used for certain kinds of illegal arguments and states. If a caller passes null in some parameter for 
+which null values are prohibited, convention dictates that NullPointerException be thrown rather than 
+IllegalArgumentException. Similarly, if a caller passes an out-of-range value in a parameter representing an index 
+into a sequence, IndexOutOfBoundsException should be thrown rather than IllegalArgumentException.
+
+Another reusable exception is ConcurrentModificationException. It should be thrown if an object that was designed 
+for use by a single thread (or with external synchronization) detects that it is being modified concurrently. This 
+exception is at best a hint because it is impossible to reliably detect concurrent modification.
+
+A last standard exception of note is UnsupportedOperationException. This is the exception to throw if an object 
+does not support an attempted operation. Its use is rare because most objects support all of their methods. This 
+exception is used by classes that fail to implement one or more optional operations defined by an interface they 
+implement. For example, an append-only List implementation would throw this exception if someone tried to delete 
+an element from the list.
+
+<b>Do not reuse Exception, RuntimeException, Throwable, or Error directly.</b> Treat these classes as if they were 
+abstract. You can't reliably test for these exceptions because they are superclasses of other exceptions 
+that a method may throw.
+{Aaron notes: Above is an important design.}
+
+This table summarizes the most commonly reused exceptions:
+
+  Exception                                   Occasion for Use
+
+1.IllegalArgumentException                    Non-null parameter value is inappropriate
+
+2.IllegalStateException                       Object state is inappropriate for method invocation
+
+3.NullPointerException                        Parameter value is null where prohibited
+
+4.IndexOutOfBoundsException                   Index parameter value is out of range
+
+5.ConcurrentModificationException             Concurrent modification of an object has been detected where it is prohibited
+
+6.UnsupportedOperationException               Object does not support method
+{Aaron notes: Above is an important design.}
+
+While these are by far the most commonly reused exceptions, others may be reused where circumstances warrant. 
+For example, it would be appropriate to reuse ArithmeticException and NumberFormatException if you were implementing 
+arithmetic objects such as complex numbers or rational numbers. If an exception fits your needs, go ahead and use it, 
+but only if the conditions under which you would throw it are consistent with the exception’s documentation: reuse 
+must be based on documented semantics, not just on name. Also, feel free to subclass a standard exception if you want 
+to add more detail (Item 75), but remember that exceptions are serializable (Chapter 12). That alone is reason not to 
+write your own exception class without good reason.
+
+### Choosing which exception to reuse can be tricky because the “occasions for use” in the table above do not appear to be mutually exclusive. Consider the case of an object representing a deck of cards, and suppose there were a method to deal a hand from the deck that took as an argument the size of the hand. If the caller passed a value larger than the number of cards remaining in the deck, it could be construed as an IllegalArgumentException (the handSize parameter value is too high) or an IllegalStateException (the deck contains too few cards). Under these circumstances, the rule is to throw IllegalStateException if no argument values would have worked, otherwise throw IllegalArgumentException.
+
 ### ITEM 73: THROW EXCEPTIONS APPROPRIATE TO THE ABSTRACTION
+
+It is disconcerting when a method throws an exception that has no apparent connection to the task that it performs. 
+This often happens when a method propagates an exception thrown by a lower-level abstraction. Not only is it 
+disconcerting, but it pollutes the API of the higher layer with implementation details. If the implementation of 
+the higher layer changes in a later release, the exceptions it throws will change too, potentially breaking existing 
+client programs.
+
+To avoid this problem, higher layers should catch lower-level exceptions and, in their place, throw exceptions that 
+can be explained in terms of the higher-level abstraction. This idiom is known as exception translation:
+```aidl
+// Exception Translation
+try {
+    ... // Use lower-level abstraction to do our bidding
+} catch (LowerLevelException e) {
+    throw new HigherLevelException(...);
+}
+```
+
+Here is an example of exception translation taken from the AbstractSequentialList class, which is a skeletal 
+implementation (Item 20) of the List interface. In this example, exception translation is mandated by the specification 
+of the get method in the List<E> interface:
+
+```aidl
+/**
+ * Returns the element at the specified position in this list.
+ * @throws IndexOutOfBoundsException if the index is out of range
+ *         ({@code index <  0 || index >= size()}).
+ */
+public E get(int index) {
+
+    ListIterator<E> i = listIterator(index);
+    try {
+        return i.next();
+    } catch (NoSuchElementException e) {
+        throw new IndexOutOfBoundsException("Index: " + index);
+    }
+}
+```
+
+A special form of exception translation called exception chaining is called for in cases where the lower-level exception 
+might be helpful to someone debugging the problem that caused the higher-level exception. The lower-level exception 
+(the cause) is passed to the higher-level exception, which provides an accessor method (Throwable’s getCause method) 
+to retrieve the lower-level exception:
+
+```aidl
+// Exception Chaining
+try {
+    ... // Use lower-level abstraction to do our bidding
+} catch (LowerLevelException cause) {
+    throw new HigherLevelException(cause);
+}
+```
+
+The higher-level exception’s constructor passes the cause to a chaining-aware superclass constructor, so it is 
+ultimately passed to one of Throwable’s chaining-aware constructors, such as Throwable(Throwable):
+
+```aidl
+// Exception with chaining-aware constructor
+class HigherLevelException extends Exception {
+    HigherLevelException(Throwable cause) {
+        super(cause);
+    }
+}
+```
+
+Most standard exceptions have chaining-aware constructors. For exceptions that don’t, you can set the cause using 
+Throwable’s initCause method. Not only does exception chaining let you access the cause programmatically 
+(with getCause), but it integrates the cause’s stack trace into that of the higher-level exception.
+
+<b> While exception translation is superior to mindless propagation of exceptions from lower layers, it should not 
+be overused.</b> Where possible, the best way to deal with exceptions from lower layers is to avoid them, by ensuring 
+that lower-level methods succeed. Sometimes you can do this by checking the validity of the higher-level method’s 
+parameters before passing them on to lower layers.
+{Aaron notes: Above is an important design.}
+
+If it is impossible to prevent exceptions from lower layers, the next best thing is to have the higher layer silently 
+work around these exceptions, insulating the caller of the higher-level method from lower-level problems. Under 
+these circumstances, it may be appropriate to log the exception using some appropriate logging facility such as 
+java.util.logging. This allows programmers to investigate the problem, while insulating client code and the 
+users from it.
+{Aaron notes: Above is an important design.}
+
+### In summary, if it isn’t feasible to prevent or to handle exceptions from lower layers, use exception translation, unless the lower-level method happens to guarantee that all of its exceptions are appropriate to the higher level. Chaining provides the best of both worlds: it allows you to throw an appropriate higher-level exception, while capturing the underlying cause for failure analysis (Item 75).
 
 ### ITEM 74: DOCUMENT ALL EXCEPTIONS THROWN BY EACH METHOD
 
