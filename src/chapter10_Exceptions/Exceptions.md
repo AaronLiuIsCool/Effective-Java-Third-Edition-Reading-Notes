@@ -105,7 +105,7 @@ subtle. This is not an issue for optional return values.
 
 ### In summary, exceptions are designed for exceptional conditions. Don’t use them for ordinary control flow, and don’t write APIs that force others to do so.
 
-### ITEM 70: USE CHECKED EXCEPTIONS FOR RECOVERABLE CONDITIONS AND RUNTIME EXCEPTIONS FOR PROGRAMMING ERRORS
+## ITEM 70: USE CHECKED EXCEPTIONS FOR RECOVERABLE CONDITIONS AND RUNTIME EXCEPTIONS FOR PROGRAMMING ERRORS
 
 Java provides three kinds of throwables: checked exceptions, runtime exceptions, and errors. There is some confusion 
 among programmers as to when it is appropriate to use each kind of throwable. While the decision is not always 
@@ -169,7 +169,7 @@ to relay the amount to the shopper. See Item 75 for more on this topic.
 
 ### To summarize, throw checked exceptions for recoverable conditions and unchecked exceptions for programming errors. When in doubt, throw unchecked exceptions. Don’t define any throwables that are neither checked exceptions nor runtime exceptions. Provide methods on your checked exceptions to aid in recovery.
 
-### ITEM 71: AVOID UNNECESSARY USE OF CHECKED EXCEPTIONS
+## ITEM 71: AVOID UNNECESSARY USE OF CHECKED EXCEPTIONS
 
 Many Java programmers dislike checked exceptions, but used properly, they can improve APIs and programs. Unlike return 
 codes and unchecked exceptions, they force programmers to deal with problems, enhancing reliability. That said, 
@@ -245,7 +245,7 @@ ruled out on performance grounds.
 
 ### In summary, when used sparingly, checked exceptions can increase the reliability of programs; when overused, they make APIs painful to use. If callers won’t be able to recover from failures, throw unchecked exceptions. If recovery may be possible and you want to force callers to handle exceptional conditions, first consider returning an optional. Only if this would provide insufficient information in the case of failure should you throw a checked exception.
 
-### ITEM 72: FAVOR THE USE OF STANDARD EXCEPTIONS
+## ITEM 72: FAVOR THE USE OF STANDARD EXCEPTIONS
 
 An attribute that distinguishes expert programmers from less experienced ones is that experts strive for and usually 
 achieve a high degree of code reuse. Exceptions are no exception to the rule that code reuse is a good thing. The Java 
@@ -312,7 +312,7 @@ write your own exception class without good reason.
 
 ### Choosing which exception to reuse can be tricky because the “occasions for use” in the table above do not appear to be mutually exclusive. Consider the case of an object representing a deck of cards, and suppose there were a method to deal a hand from the deck that took as an argument the size of the hand. If the caller passed a value larger than the number of cards remaining in the deck, it could be construed as an IllegalArgumentException (the handSize parameter value is too high) or an IllegalStateException (the deck contains too few cards). Under these circumstances, the rule is to throw IllegalStateException if no argument values would have worked, otherwise throw IllegalArgumentException.
 
-### ITEM 73: THROW EXCEPTIONS APPROPRIATE TO THE ABSTRACTION
+## ITEM 73: THROW EXCEPTIONS APPROPRIATE TO THE ABSTRACTION
 
 It is disconcerting when a method throws an exception that has no apparent connection to the task that it performs. 
 This often happens when a method propagates an exception thrown by a lower-level abstraction. Not only is it 
@@ -396,11 +396,129 @@ users from it.
 {Aaron notes: Above is an important design.}
 
 ### In summary, if it isn’t feasible to prevent or to handle exceptions from lower layers, use exception translation, unless the lower-level method happens to guarantee that all of its exceptions are appropriate to the higher level. Chaining provides the best of both worlds: it allows you to throw an appropriate higher-level exception, while capturing the underlying cause for failure analysis (Item 75).
+{Aaron notes: Above is an important design.}
 
-### ITEM 74: DOCUMENT ALL EXCEPTIONS THROWN BY EACH METHOD
+## ITEM 74: DOCUMENT ALL EXCEPTIONS THROWN BY EACH METHOD
 
-### ITEM 75: INCLUDE FAILURE-CAPTURE INFORMATION IN DETAIL MESSAGES
+A description of the exceptions thrown by a method is an important part of the documentation required to use the method 
+properly. Therefore, it is critically important that you take the time to carefully document all of the exceptions 
+thrown by each method (Item 56).
 
-### ITEM 76: STRIVE FOR FAILURE ATOMICITY
+<b>Always declare checked exceptions individually, and document precisely the conditions under which each one is 
+thrown</b> using the Javadoc @throws tag. Don’t take the shortcut of declaring that a method throws some superclass of 
+multiple exception classes that it can throw. As an extreme example, don’t declare that a public method throws 
+Exception or, worse, throws Throwable. In addition to denying any guidance to the method’s user concerning the 
+exceptions it is capable of throwing, such a declaration greatly hinders the use of the method because it effectively 
+obscures any other exception that may be thrown in the same context. One exception to this advice is the main method, 
+which can safely be declared to throw Exception because it is called only by VM.
+{Aaron notes: Above is an important design.}
 
-### ITEM 77: DON’T IGNORE EXCEPTIONS
+While the language does not require programmers to declare the unchecked exceptions that a method is capable of 
+throwing, it is wise to document them as carefully as the checked exceptions. Unchecked exceptions generally represent 
+programming errors (Item 70), and familiarizing programmers with all of the errors they can make helps them avoid 
+making these errors. A well-documented list of the unchecked exceptions that a method can throw effectively describes 
+the preconditions for its successful execution. It is essential that every public method’s documentation describe its 
+preconditions (Item 56), and documenting its unchecked exceptions is the best way to satisfy this requirement.
+
+It is particularly important that methods in interfaces document the unchecked exceptions they may throw. This 
+documentation forms a part of the interface’s general contract and enables common behavior among multiple 
+implementations of the interface.
+
+<b>Use the Javadoc @throws tag to document each exception that a method can throw, but do not use the throws keyword on 
+unchecked exceptions.</b> It is important that programmers using your API are aware of which exceptions are checked and 
+which are unchecked because the programmers’ responsibilities differ in these two cases. The documentation generated 
+by the Javadoc @throws tag without a corresponding throws clause in the method declaration provides a strong visual 
+cue to the programmer that an exception is unchecked.
+
+It should be noted that documenting all of the unchecked exceptions that each method can throw is an ideal, not always 
+achievable in the real world. When a class undergoes revision, it is not a violation of source or binary compatibility 
+if an exported method is modified to throw additional unchecked exceptions. Suppose a class invokes a method from 
+another, independently written class. The authors of the former class may carefully document all of the unchecked 
+exceptions that each method throws, but if the latter class is revised to throw additional unchecked exceptions, it 
+is quite likely that the former class (which has not undergone revision) will propagate the new unchecked exceptions 
+even though it does not document them.
+
+<b>If an exception is thrown by many methods in a class for the same reason, you can document the exception in the class’s 
+documentation comment rather than documenting it individually for each method.</b>I A common example is NullPointerException.
+It is fine for a class’s documentation comment to say, “All methods in this class throw a NullPointerException if a null 
+object reference is passed in any parameter,” or words to that effect.
+
+### In summary, document every exception that can be thrown by each method that you write. This is true for unchecked as well as checked exceptions, and for abstract as well as concrete methods. This documentation should take the form of @throws tags in doc comments. Declare each checked exception individually in a method’s throws clause, but do not declare unchecked exceptions. If you fail to document the exceptions that your methods can throw, it will be difficult or impossible for others to make effective use of your classes and interfaces.
+
+## ITEM 75: INCLUDE FAILURE-CAPTURE INFORMATION IN DETAIL MESSAGES
+
+When a program fails due to an uncaught exception, the system automatically prints out the exception’s stack trace. 
+The stack trace contains the exception’s string representation, the result of invoking its toString method. This 
+typically consists of the exception’s class name followed by its detail message. Frequently this is the only 
+information that programmers or site reliability engineers will have when investigating a software failure. If the 
+failure is not easily reproducible, it may be difficult or impossible to get any more information. <b>Therefore, it 
+is critically important that the exception’s toString method return as much information as possible </b>
+concerning the cause of the failure. In other words, the detail message of an exception should capture the 
+failure for subsequent analysis.
+{Aaron notes: Above is an important design.}
+
+<b>To capture a failure, the detail message of an exception should contain the values of all parameters and fields
+that contributed to the exception.</b> For example, the detail message of an IndexOutOfBoundsException should 
+contain the lower bound, the upper bound, and the index value that failed to lie between the bounds. This 
+information tells a lot about the failure. Any or all of the three values could be wrong. The index could be one 
+less than the lower bound or equal to the upper bound (a “fencepost error”), or it could be a wild value, far 
+too low or high. The lower bound could be greater than the upper bound (a serious internal invariant failure). 
+Each of these situations points to a different problem, and it greatly aids in the diagnosis if you know what 
+sort of error you’re looking for.
+{Aaron notes: Above is an important design.}
+
+One caveat concerns security-sensitive information. Because stack traces may be seen by many people in the 
+process of diagnosing and fixing software issues, do not include passwords, encryption keys, and the like in 
+detail messages.
+
+While it is critical to include all of the pertinent data in the detail message of an exception, it is generally 
+unimportant to include a lot of prose. The stack trace is intended to be analyzed in conjunction with the 
+documentation and, if necessary, source code. It generally contains the exact file and line number from which the
+exception was thrown, as well as the files and line numbers of all other method invocations on the stack. 
+Lengthy prose descriptions of the failure are superfluous; the information can be gleaned by reading the 
+documentation and source code.
+
+The detail message of an exception should not be confused with a user-level error message, which must be 
+intelligible to end users. Unlike a user-level error message, the detail message is primarily for the benefit of 
+programmers or site reliability engineers, when analyzing a failure. Therefore, information content is far more 
+important than readability. User-level error messages are often localized, whereas exception detail messages 
+rarely are.
+
+One way to ensure that exceptions contain adequate failure-capture information in their detail messages is to 
+require this information in their constructors instead of a string detail message. The detail message can then 
+be generated automatically to include the information. For example, instead of a String constructor, 
+IndexOutOfBoundsException could have had a constructor that looks like this:
+```aidl
+/**
+ * Constructs an IndexOutOfBoundsException.
+ *
+ * @param lowerBound the lowest legal index value
+ * @param upperBound the highest legal index value plus one
+ * @param index      the actual index value
+ */
+
+public IndexOutOfBoundsException(int lowerBound, int upperBound, int index) {
+
+    // Generate a detail message that captures the failure
+    super(String.format( "Lower bound: %d, Upper bound: %d, Index: %d", lowerBound, upperBound, index));
+
+    // Save failure information for programmatic access
+    this.lowerBound = lowerBound;
+    this.upperBound = upperBound;
+    this.index = index;
+}
+```
+
+As of Java 9, IndexOutOfBoundsException finally acquired a constructor that takes an int valued index parameter, but 
+sadly it omits the lowerBound and upperBound parameters. More generally, the Java libraries don’t make heavy use 
+of this idiom, but it is highly recommended. It makes it easy for the programmer throwing an exception to capture 
+the failure. In fact, it makes it hard for the programmer not to capture the failure! In effect, the idiom 
+centralizes the code to generate a high-quality detail message in the exception class, rather than requiring each 
+user of the class to generate the detail message redundantly.
+{Aaron notes: Above is an important design.}
+
+### As suggested in Item 70, it may be appropriate for an exception to provide accessor methods for its failure-capture information (lowerBound, upperBound, and index in the above example). It is more important to provide such accessor methods on checked exceptions than unchecked, because the failure-capture information could be useful in recovering from the failure. It is rare (although not inconceivable) that a programmer might want programmatic access to the details of an unchecked exception. Even for unchecked exceptions, however, it seems advisable to provide these accessors on general principle (Item 12, page 57).
+
+## ITEM 76: STRIVE FOR FAILURE ATOMICITY
+
+## ITEM 77: DON’T IGNORE EXCEPTIONS
