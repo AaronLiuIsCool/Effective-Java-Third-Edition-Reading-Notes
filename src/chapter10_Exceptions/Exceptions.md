@@ -521,4 +521,110 @@ user of the class to generate the detail message redundantly.
 
 ## ITEM 76: STRIVE FOR FAILURE ATOMICITY
 
+After an object throws an exception, it is generally desirable that the object still be in a well-defined, usable state, 
+even if the failure occurred in the midst of performing an operation. This is especially true for checked exceptions, 
+from which the caller is expected to recover. <b>Generally speaking, a failed method invocation should leave the object in 
+the state that it was in prior to the invocation. A method with this property is said to be failure-atomic. </b>
+
+There are several ways to achieve this effect. The simplest is to design immutable objects (Item 17). 
+
+0. If an object is immutable, failure atomicity is free. If an operation fails, it may prevent a new object from 
+getting created, but it will never leave an existing object in an inconsistent state, because the state of each 
+object is consistent when it is created and can’t be modified thereafter.
+
+1. For methods that operate on mutable objects, the most common way to achieve failure atomicity is to check parameters 
+for validity before performing the operation (Item 49). This causes most exceptions to get thrown before object 
+modification commences. For example, consider the Stack.pop method in Item 7:
+
+```aidl
+public Object pop() {
+
+    if (size == 0)
+        throw new EmptyStackException();
+
+    Object result = elements[--size];
+    elements[size] = null; // Eliminate obsolete reference
+    return result;
+}
+```
+
+If the initial size check were eliminated, the method would still throw an exception when it attempted to pop an 
+element from an empty stack. It would, however, leave the size field in an inconsistent (negative) state, causing 
+any future method invocations on the object to fail. Additionally, the ArrayIndexOutOfBoundsException thrown by the 
+pop method would be inappropriate to the abstraction (Item 73).
+{Aaron notes: Above is an important design.}
+
+2. A closely related approach to achieving failure atomicity is to order the computation so that any part that may 
+fail takes place before any part that modifies the object. This approach is a natural extension of the previous 
+one when arguments cannot be checked without performing a part of the computation. For example, consider the case 
+of TreeMap, whose elements are sorted according to some ordering. In order to add an element to a TreeMap, the 
+element must be of a type that can be compared using the TreeMap’s ordering. Attempting to add an incorrectly typed 
+element will naturally fail with a ClassCastException as a result of searching for the element in the tree, before 
+the tree has been modified in any way.
+
+3. A third approach to achieving failure atomicity is to perform the operation on a temporary copy of the object and 
+to replace the contents of the object with the temporary copy once the operation is complete. This approach occurs 
+naturally when the computation can be performed more quickly once the data has been stored in a temporary data 
+structure. For example, some sorting functions copy their input list into an array prior to sorting to reduce the cost 
+of accessing elements in the inner loop of the sort. This is done for performance, but as an added benefit, it 
+ensures that the input list will be untouched if the sort fails.
+
+4. A last and far less common approach to achieving failure atomicity is to write recovery code that intercepts a 
+failure that occurs in the midst of an operation, and causes the object to roll back its state to the point before 
+the operation began. This approach is used mainly for durable (disk-based) data structures.
+
+While failure atomicity is generally desirable, it is not always achievable. For example, if two threads attempt 
+to modify the same object concurrently without proper synchronization, the object may be left in an inconsistent 
+state. It would therefore be wrong to assume that an object was still usable after catching a 
+ConcurrentModificationException. Errors are unrecoverable, so you need not even attempt to preserve failure atomicity 
+when throwing AssertionError.
+{Aaron notes: Above is an important design.}
+
+Even where failure atomicity is possible, it is not always desirable. For some operations, it would significantly 
+increase the cost or complexity. That said, it is often both free and easy to achieve failure atomicity once you’re 
+aware of the issue.
+{Aaron notes: Above is an important design.}
+
+### In summary, as a rule, any generated exception that is part of a method’s specification should leave the object in the same state it was in prior to the method invocation. Where this rule is violated, the API documentation should clearly indicate what state the object will be left in. Unfortunately, plenty of existing API documentation fails to live up to this ideal.
+{Aaron notes: Above is an important design.}
+
 ## ITEM 77: DON’T IGNORE EXCEPTIONS
+While this advice may seem obvious, it is violated often enough that it bears repeating. When the designers of an API 
+declare a method to throw an exception, they are trying to tell you something. Don’t ignore it! It is easy to ignore 
+exceptions by surrounding a method invocation with a try statement whose catch block is empty:
+
+```aidl
+// Empty catch block ignores exception - Highly suspect!
+try {
+    ...
+
+} catch (SomeException e) {
+
+}
+```
+
+<b>An empty catch block defeats the purpose of exceptions, which is to force you to handle exceptional conditions. </b>
+Ignoring an exception is analogous to ignoring a fire alarm—and turning it off so no one else gets a chance to see if 
+there’s a real fire. You may get away with it, or the results may be disastrous. Whenever you see an empty catch block, 
+alarm bells should go off in your head.
+{Aaron notes: Above is an important design.}
+
+There are situations where it is appropriate to ignore an exception. For example, it might be appropriate when closing 
+a FileInputStream. You haven’t changed the state of the file, so there’s no need to perform any recovery action, and 
+you’ve already read the information that you need from the file, so there’s no reason to abort the operation in 
+progress. It may be wise to log the exception, so that you can investigate the matter if these exceptions happen often. 
+If you choose to ignore an exception, the catch block should contain a comment explaining why it is appropriate to do 
+so, and the variable should be named ignored:
+
+```aidl
+Future<Integer> f = exec.submit(planarMap::chromaticNumber);
+int numColors = 4; // Default; guaranteed sufficient for any map
+
+try {
+    numColors = f.get(1L, TimeUnit.SECONDS);
+} catch (TimeoutException | ExecutionException ignored) {
+    // Use default: minimal coloring is desirable, not required
+}
+```
+
+### In summary, the advice in this item applies equally to checked and unchecked exceptions. Whether an exception represents a predictable exceptional condition or a programming error, ignoring it with an empty catch block will result in a program that continues silently in the face of error. The program might then fail at an arbitrary time in the future, at a point in the code that bears no apparent relation to the source of the problem. Properly handling an exception can avert failure entirely. Merely letting an exception propagate outward can at least cause the program to fail swiftly, preserving information to aid in debugging the failure.
