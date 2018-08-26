@@ -11,6 +11,6 @@ Reading Effective Java, Third Edition in 11 days (3 hours per day) and make note
 - [X] Chapter 8: Methods
 - [X] Chapter 9: General Programming
 - [X] Chapter 10: Exceptions
-- [ ] Chapter 11: Concurrency
+- [X] Chapter 11: Concurrency
 - [ ] Chapter 12: Serialization
 
